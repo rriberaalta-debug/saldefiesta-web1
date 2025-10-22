@@ -1,0 +1,7 @@
+{
+  "name": "SaldeFiesta - Momentos de Fiestas Patronales",
+  "description": "Una plataforma social para que los usuarios compartan y revivan sus experiencias de las fiestas patronales en diferentes ciudades de España. Los usuarios pueden subir fotos y vídeos, comentar en publicaciones y descubrir nuevas celebraciones.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

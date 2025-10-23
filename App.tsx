@@ -56,9 +56,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<View>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [comments, setComments] = useState<Record<string, CommentType[]>>({
-     p1: [{id: 'c1', postId: 'p1', userId: 'u2', text: '¡Qué buena pinta! Estuve ahí el año pasado.', timestamp: new Date().toISOString()}],
-  });
+  const [comments, setComments] = useState<Record<string, CommentType[]>>({});
   const [stories, setStories] = useState<UserStory[]>([]);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -139,6 +137,36 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  // useEffect para cargar los comentarios del post seleccionado
+  useEffect(() => {
+    if (!selectedPostId) {
+      return;
+    }
+
+    const q = query(collection(db, "posts", selectedPostId, "comments"), orderBy("timestamp", "asc"));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const commentsFromFirestore: CommentType[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        commentsFromFirestore.push({ 
+          id: doc.id,
+          postId: selectedPostId,
+          userId: data.userId,
+          text: data.text,
+          timestamp: data.timestamp?.toDate().toISOString() || new Date().toISOString(),
+        });
+      });
+      
+      setComments(prev => ({
+        ...prev,
+        [selectedPostId]: commentsFromFirestore
+      }));
+    });
+
+    return () => unsubscribe();
+  }, [selectedPostId]);
 
 
   useEffect(() => {
@@ -270,9 +298,12 @@ const App: React.FC = () => {
       return;
     }
 
+    // Confirmation is now handled by the browser's native confirm dialog.
+    // This simplifies the UI and is a standard practice.
     if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.')) {
       try {
         // 1. Borrar el archivo de Firebase Storage
+        // The URL needs to be decoded to get the correct path for deletion
         const storageRef = ref(storage, postToDelete.mediaUrl);
         await deleteObject(storageRef);
 
@@ -285,7 +316,15 @@ const App: React.FC = () => {
         
       } catch (error) {
         console.error("Error al eliminar la publicación:", error);
-        alert("Ocurrió un error al eliminar la publicación. Por favor, inténtalo de nuevo.");
+        // Provide more specific feedback if possible (e.g., storage error vs. firestore error)
+        if ((error as any).code?.includes('storage/object-not-found')) {
+           console.warn("Storage object not found, but proceeding to delete Firestore entry.");
+            const postDocRef = doc(db, 'posts', postId);
+            await deleteDoc(postDocRef);
+            handleCloseDetail();
+        } else {
+          alert("Ocurrió un error al eliminar la publicación. Por favor, inténtalo de nuevo.");
+        }
       }
     }
   };

@@ -32,8 +32,8 @@ import {
   updateProfile,
   User as FirebaseUser
 } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, increment, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 
 type View = 'feed' | 'post' | 'profile';
@@ -261,13 +261,32 @@ const App: React.FC = () => {
     }
   };
   
-  const handleDeletePost = (postId: string) => {
+  const handleDeletePost = async (postId: string) => {
     if (!currentUser) return;
+
     const postToDelete = posts.find(p => p.id === postId);
-    if (postToDelete && postToDelete.userId === currentUser.id) {
-        // Lógica para borrar en Firebase (próximo paso)
-        console.log("Borrando post (lógica pendiente)...");
+    if (!postToDelete || postToDelete.userId !== currentUser.id) {
+      alert("No tienes permiso para borrar esta publicación.");
+      return;
+    }
+
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.')) {
+      try {
+        // 1. Borrar el archivo de Firebase Storage
+        const storageRef = ref(storage, postToDelete.mediaUrl);
+        await deleteObject(storageRef);
+
+        // 2. Borrar el documento de Firestore
+        const postDocRef = doc(db, 'posts', postId);
+        await deleteDoc(postDocRef);
+
+        // 3. Cerrar la vista de detalle
         handleCloseDetail();
+        
+      } catch (error) {
+        console.error("Error al eliminar la publicación:", error);
+        alert("Ocurrió un error al eliminar la publicación. Por favor, inténtalo de nuevo.");
+      }
     }
   };
 

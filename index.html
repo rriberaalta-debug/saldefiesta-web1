@@ -8,7 +8,33 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lobster&display=swap" rel="stylesheet">
     
-    
+    <!-- FIX: Re-added Tailwind CDN for live preview environment -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'festive-orange': '#FF7043',
+              'vibrant-purple': '#7B1FA2',
+              'sky-blue': '#4FC3F7',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              lobster: ['Lobster', 'cursive'],
+            }
+          },
+        }
+      }
+    </script>
+    <!-- End of fix -->
+
+    <!-- FAVICONS -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
 
     <script type="importmap">
 {
@@ -21,15 +47,14 @@
     "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.26.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.546.0",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.4"
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.4",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.4.0/"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>
-  <script type="module" src="/index.tsx"></script>
-</body>
+  </body>
 </html>

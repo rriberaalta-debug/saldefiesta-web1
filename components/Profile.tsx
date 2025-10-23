@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, ChangeEvent } from 'react';
 import { User, Post } from '../types';
-import { ArrowLeft, ShieldOff, UserCheck, Upload } from 'lucide-react';
+import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2 } from 'lucide-react';
 
 interface ProfileProps {
   user: User;
@@ -12,11 +12,39 @@ interface ProfileProps {
   onBlockUser: (userId: string) => void;
   onUnblockUser: (userId: string) => void;
   onOpenUploadModal: () => void;
+  onUpdateAvatar: (file: File) => Promise<void>;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal }) => {
+const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal, onUpdateAvatar }) => {
   const isBlocked = blockedUsers.has(user.id);
-  const isOwnProfile = currentUser?.id === user.id;
+  const isOwnProfile = currentUser?.id === useir.id;
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecciona un archivo de imagen.');
+        return;
+      }
+      setIsUploading(true);
+      try {
+        await onUpdateAvatar(file);
+      } catch (error) {
+        console.error("Failed to update avatar:", error);
+        alert("No se pudo actualizar la foto de perfil. Inténtalo de nuevo.");
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const handleAvatarClick = () => {
+    if (isOwnProfile && !isUploading) {
+      fileInputRef.current?.click();
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto bg-black/20 p-6 rounded-2xl animate-fade-in">
@@ -26,7 +54,33 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
       </button>
 
       <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 mb-8">
-        <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange" />
+        <div className="relative group flex-shrink-0">
+          <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange" />
+          {isOwnProfile && (
+            <>
+              <input
+                type="file"
+                ref={fileInputRef}
+                hidden
+                accept="image/*"
+                onChange={handleAvatarChange}
+                disabled={isUploading}
+              />
+              <button
+                onClick={handleAvatarClick}
+                disabled={isUploading}
+                className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                aria-label="Cambiar foto de perfil"
+              >
+                {isUploading ? (
+                  <Loader2 className="animate-spin text-white" size={32} />
+                ) : (
+                  <Camera size={32} className="text-white" />
+                )}
+              </button>
+            </>
+          )}
+        </div>
         <div className="flex-1">
           <h1 className="text-4xl font-bold">{user.username}</h1>
           <p className="text-lg text-gray-300 mt-2">{posts.length} Publicaciones</p>

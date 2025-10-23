@@ -322,6 +322,40 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateAvatar = async (file: File) => {
+    if (!currentUser || !auth.currentUser) {
+        alert("Debes iniciar sesión para cambiar tu foto de perfil.");
+        return;
+    }
+
+    try {
+        // 1. Subir la nueva imagen a Firebase Storage
+        const filePath = `avatars/${currentUser.id}`; // Sobrescribe el avatar anterior
+        const storageRef = ref(storage, filePath);
+        await uploadBytes(storageRef, file);
+
+        // 2. Obtener la URL de descarga
+        const downloadURL = await getDownloadURL(storageRef);
+
+        // 3. Actualizar el perfil en Firebase Authentication
+        await updateProfile(auth.currentUser, { photoURL: downloadURL });
+
+        // 4. Actualizar el perfil en la base de datos de Firestore
+        const userDocRef = doc(db, "users", currentUser.id);
+        await updateDoc(userDocRef, { avatarUrl: downloadURL });
+        
+        // 5. Actualizar el estado local para ver el cambio al instante
+        setCurrentUser(prevUser => {
+            if (!prevUser) return null;
+            return { ...prevUser, avatarUrl: downloadURL };
+        });
+
+    } catch (error) {
+        console.error("Error al actualizar el avatar:", error);
+        throw new Error("No se pudo actualizar la foto de perfil.");
+    }
+  };
+
   const handleLogin = async ({ email, password }: Credentials) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -588,6 +622,7 @@ const App: React.FC = () => {
             onBlockUser={handleBlockUser}
             onUnblockUser={handleUnblockUser}
             onOpenUploadModal={() => setUploadModalOpen(true)}
+            onUpdateAvatar={handleUpdateAvatar}
           />
         )}
       </main>

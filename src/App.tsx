@@ -22,7 +22,7 @@ import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
-
+// FIX: Removed Firebase imports as firebase.ts is not configured for simulation mode.
 type View = 'feed' | 'post' | 'profile';
 
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // FIX: Set initial authLoading to false as we are not waiting for Firebase auth state.
   const [authLoading, setAuthLoading] = useState(false);
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
   const [isSignUpModalOpen, setSignUpModalOpen] = useState(false);
@@ -78,8 +79,8 @@ const App: React.FC = () => {
   const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>(null);
   
   const feedRef = useRef<HTMLDivElement>(null);
-
-
+  
+  // FIX: Removed Firebase onAuthStateChanged listener.
   useEffect(() => {
     if (debouncedSearchQuery) {
       const performSearch = async () => {
@@ -183,6 +184,7 @@ const App: React.FC = () => {
     }
   };
 
+  // FIX: Reverted to mock login handler.
   const handleLogin = async ({email, password}: Credentials) => {
      const existingUser = users.find(u => u.username.toLowerCase() === email.split('@')[0].toLowerCase());
      if (existingUser) {
@@ -193,6 +195,7 @@ const App: React.FC = () => {
      }
   };
 
+  // FIX: Reverted to mock sign up handler.
   const handleSignUp = async ({email, password, username}: Credentials) => {
     const finalUsername = username || email.split('@')[0];
     const newUser: User = {
@@ -205,6 +208,7 @@ const App: React.FC = () => {
     setSignUpModalOpen(false);
   };
   
+  // FIX: Reverted to mock Google Sign In handler.
   const handleGoogleSignIn = async () => {
      const mockGoogleUser: User = {
         id: 'u-google',
@@ -219,6 +223,7 @@ const App: React.FC = () => {
      setSignUpModalOpen(false);
   };
 
+  // FIX: Reverted to mock logout handler.
   const handleLogout = async () => {
     setCurrentUser(null);
     handleCloseDetail();

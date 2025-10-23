@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import { User, Post } from '../types';
-import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShieldOff, UserCheck, Upload } from 'lucide-react';
 
 interface ProfileProps {
   user: User;
@@ -12,31 +12,11 @@ interface ProfileProps {
   onBlockUser: (userId: string) => void;
   onUnblockUser: (userId: string) => void;
   onOpenUploadModal: () => void;
-  onUpdateAvatar: (file: File) => Promise<void>;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal, onUpdateAvatar }) => {
+const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal }) => {
   const isBlocked = blockedUsers.has(user.id);
   const isOwnProfile = currentUser?.id === user.id;
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleAvatarChangeClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit for avatars
-        alert('El tamaño de la foto de perfil debe ser inferior a 5MB.');
-        return;
-      }
-      setIsUploadingAvatar(true);
-      await onUpdateAvatar(file);
-      setIsUploadingAvatar(false);
-    }
-  };
 
   return (
     <div className="max-w-4xl mx-auto bg-black/20 p-6 rounded-2xl animate-fade-in">
@@ -46,29 +26,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
       </button>
 
       <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 mb-8">
-        <div className="relative w-32 h-32 flex-shrink-0">
-          <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange object-cover" />
-          {isOwnProfile && (
-            <>
-              <button
-                onClick={handleAvatarChangeClick}
-                className="absolute bottom-0 right-0 bg-sky-blue p-2 rounded-full text-white hover:bg-sky-blue-600 transition-colors"
-                title="Cambiar foto de perfil"
-                disabled={isUploadingAvatar}
-              >
-                {isUploadingAvatar ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
-              </button>
-              <input 
-                type="file"
-                ref={fileInputRef}
-                hidden
-                accept="image/png, image/jpeg"
-                onChange={handleFileSelected}
-              />
-            </>
-          )}
-        </div>
-
+        <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange" />
         <div className="flex-1">
           <h1 className="text-4xl font-bold">{user.username}</h1>
           <p className="text-lg text-gray-300 mt-2">{posts.length} Publicaciones</p>

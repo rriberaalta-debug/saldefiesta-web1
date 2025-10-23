@@ -298,25 +298,18 @@ const App: React.FC = () => {
       return;
     }
 
-    // Confirmation is now handled by the browser's native confirm dialog.
-    // This simplifies the UI and is a standard practice.
     if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.')) {
       try {
-        // 1. Borrar el archivo de Firebase Storage
-        // The URL needs to be decoded to get the correct path for deletion
         const storageRef = ref(storage, postToDelete.mediaUrl);
         await deleteObject(storageRef);
 
-        // 2. Borrar el documento de Firestore
         const postDocRef = doc(db, 'posts', postId);
         await deleteDoc(postDocRef);
 
-        // 3. Cerrar la vista de detalle
         handleCloseDetail();
         
       } catch (error) {
         console.error("Error al eliminar la publicación:", error);
-        // Provide more specific feedback if possible (e.g., storage error vs. firestore error)
         if ((error as any).code?.includes('storage/object-not-found')) {
            console.warn("Storage object not found, but proceeding to delete Firestore entry.");
             const postDocRef = doc(db, 'posts', postId);
@@ -326,42 +319,6 @@ const App: React.FC = () => {
           alert("Ocurrió un error al eliminar la publicación. Por favor, inténtalo de nuevo.");
         }
       }
-    }
-  };
-
-  const handleUpdateAvatar = async (file: File) => {
-    if (!currentUser || !auth.currentUser) {
-      alert("Debes iniciar sesión para cambiar tu foto.");
-      return;
-    }
-  
-    try {
-      // 1. Create a reference in Storage
-      const filePath = `avatars/${currentUser.id}`;
-      const storageRef = ref(storage, filePath);
-  
-      // 2. Upload the new image, overwriting any existing one
-      await uploadBytes(storageRef, file);
-  
-      // 3. Get the new download URL
-      const downloadURL = await getDownloadURL(storageRef);
-  
-      // 4. Update the profile in Firebase Auth
-      await updateProfile(auth.currentUser, { photoURL: downloadURL });
-  
-      // 5. Update the user document in Firestore
-      const userDocRef = doc(db, 'users', currentUser.id);
-      await updateDoc(userDocRef, { avatarUrl: downloadURL });
-  
-      // 6. Update local state for an instant UI response
-      setCurrentUser(prevUser => {
-        if (!prevUser) return null;
-        return { ...prevUser, avatarUrl: downloadURL };
-      });
-  
-    } catch (error) {
-      console.error("Error al actualizar el avatar:", error);
-      alert("No se pudo actualizar la foto de perfil. Por favor, inténtalo de nuevo.");
     }
   };
 
@@ -631,7 +588,6 @@ const App: React.FC = () => {
             onBlockUser={handleBlockUser}
             onUnblockUser={handleUnblockUser}
             onOpenUploadModal={() => setUploadModalOpen(true)}
-            onUpdateAvatar={handleUpdateAvatar}
           />
         )}
       </main>

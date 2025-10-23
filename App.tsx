@@ -298,25 +298,18 @@ const App: React.FC = () => {
       return;
     }
 
-    // Confirmation is now handled by the browser's native confirm dialog.
-    // This simplifies the UI and is a standard practice.
     if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.')) {
       try {
-        // 1. Borrar el archivo de Firebase Storage
-        // The URL needs to be decoded to get the correct path for deletion
         const storageRef = ref(storage, postToDelete.mediaUrl);
         await deleteObject(storageRef);
 
-        // 2. Borrar el documento de Firestore
         const postDocRef = doc(db, 'posts', postId);
         await deleteDoc(postDocRef);
 
-        // 3. Cerrar la vista de detalle
         handleCloseDetail();
         
       } catch (error) {
         console.error("Error al eliminar la publicación:", error);
-        // Provide more specific feedback if possible (e.g., storage error vs. firestore error)
         if ((error as any).code?.includes('storage/object-not-found')) {
            console.warn("Storage object not found, but proceeding to delete Firestore entry.");
             const postDocRef = doc(db, 'posts', postId);

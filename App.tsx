@@ -21,7 +21,7 @@ import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
-import { auth, db } from './services/firebase';
+import { auth, db, storage } from './services/firebase';
 import { 
   onAuthStateChanged, 
   createUserWithEmailAndPassword, 
@@ -32,7 +32,8 @@ import {
   updateProfile,
   User as FirebaseUser
 } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 
 type View = 'feed' | 'post' | 'profile';
@@ -176,69 +177,96 @@ const App: React.FC = () => {
       setLoginModalOpen(true);
       return;
     }
-    setPosts(posts.map(p => {
-        if (p.id === postId) {
-            const isLiked = p.likedBy.includes(currentUser.id);
-            return {
-                ...p,
-                likes: isLiked ? p.likes - 1 : p.likes + 1,
-                likedBy: isLiked ? p.likedBy.filter(id => id !== currentUser.id) : [...p.likedBy, currentUser.id]
-            };
-        }
-        return p;
-    }));
+    const postRef = doc(db, 'posts', postId);
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+  
+    const isLiked = post.likedBy.includes(currentUser.id);
+  
+    if (isLiked) {
+      await updateDoc(postRef, {
+        likes: increment(-1),
+        likedBy: arrayRemove(currentUser.id)
+      });
+    } else {
+      await updateDoc(postRef, {
+        likes: increment(1),
+        likedBy: arrayUnion(currentUser.id)
+      });
+    }
   };
 
   const handleAddComment = async (postId: string, text: string) => {
     if (!currentUser) return;
-    const newComment: CommentType = {
-        id: `c${Date.now()}`,
-        postId,
-        userId: currentUser.id,
-        text,
-        timestamp: new Date().toISOString(),
-    };
-    setComments(prev => ({
-        ...prev,
-        [postId]: [...(prev[postId] || []), newComment]
-    }));
+    const postRef = doc(db, 'posts', postId);
+    const commentsCol = collection(postRef, 'comments');
+    
+    await addDoc(commentsCol, {
+      userId: currentUser.id,
+      text: text,
+      timestamp: serverTimestamp(),
+    });
+
+    await updateDoc(postRef, {
+        commentCount: increment(1)
+    });
   };
 
   const handleUpload = async (formData: { title: string; description: string; city: string; file: File }) => {
-    if (!currentUser) return;
-    
+    if (!currentUser) {
+        alert("Debes iniciar sesión para publicar.");
+        return;
+    }
+
     let finalDescription = formData.description;
     if (!finalDescription) {
-      try {
-        finalDescription = await generateDescription(formData.title, formData.city);
-      } catch (error) {
-        console.error("Failed to generate description:", error);
-        finalDescription = "¡Un recuerdo maravilloso de la fiesta!";
-      }
+        try {
+            finalDescription = await generateDescription(formData.title, formData.city);
+        } catch (error) {
+            console.error("Failed to generate description:", error);
+            finalDescription = "¡Un recuerdo maravilloso de la fiesta!";
+        }
     }
-    
-    const newPost: Post = {
-        id: `p${Date.now()}`,
-        userId: currentUser.id,
-        title: formData.title,
-        description: finalDescription,
-        city: formData.city,
-        mediaUrl: URL.createObjectURL(formData.file),
-        mediaType: formData.file.type.startsWith('video') ? 'video' : 'image',
-        timestamp: new Date().toISOString(),
-        likes: 0,
-        likedBy: [],
-        commentCount: 0,
-    };
-    setPosts([newPost, ...posts]);
-    setUploadModalOpen(false);
+
+    try {
+        // 1. Subir archivo a Firebase Storage
+        const filePath = `posts/${currentUser.id}/${Date.now()}_${formData.file.name}`;
+        const storageRef = ref(storage, filePath);
+        const uploadResult = await uploadBytes(storageRef, formData.file);
+        
+        // 2. Obtener la URL de descarga del archivo
+        const downloadURL = await getDownloadURL(uploadResult.ref);
+
+        // 3. Crear el documento del post en Firestore
+        const newPost = {
+            userId: currentUser.id,
+            title: formData.title,
+            description: finalDescription,
+            city: formData.city,
+            mediaUrl: downloadURL,
+            mediaType: formData.file.type.startsWith('video') ? 'video' : 'image',
+            timestamp: serverTimestamp(),
+            likes: 0,
+            likedBy: [],
+            commentCount: 0,
+        };
+
+        await addDoc(collection(db, "posts"), newPost);
+        
+        setUploadModalOpen(false);
+
+    } catch (error) {
+        console.error("Error al subir la publicación:", error);
+        alert("Ocurrió un error al subir tu publicación. Por favor, inténtalo de nuevo.");
+    }
   };
   
   const handleDeletePost = (postId: string) => {
     if (!currentUser) return;
     const postToDelete = posts.find(p => p.id === postId);
     if (postToDelete && postToDelete.userId === currentUser.id) {
-        setPosts(prevPosts => prevPosts.filter(p => p.id !== postId));
+        // Lógica para borrar en Firebase (próximo paso)
+        console.log("Borrando post (lógica pendiente)...");
         handleCloseDetail();
     }
   };
@@ -266,7 +294,6 @@ const App: React.FC = () => {
         photoURL: photoURL
       });
       
-      // Crear documento de usuario en Firestore
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, {
         id: user.uid,
@@ -287,13 +314,12 @@ const App: React.FC = () => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Crear o actualizar documento de usuario en Firestore
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, {
         id: user.uid,
         username: user.displayName || user.email?.split('@')[0],
         avatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`
-      }, { merge: true }); // merge: true para no sobreescribir si ya existe
+      }, { merge: true });
 
 
       setLoginModalOpen(false);
@@ -390,7 +416,11 @@ const App: React.FC = () => {
     }
     
     // Default sort is 'recent'
-    return [...displayedPosts].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return [...displayedPosts].sort((a, b) => {
+        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+        return dateB.getTime() - dateA.getTime();
+    });
 
   }, [displayedPosts, sortBy, userLocation]);
 
@@ -398,7 +428,6 @@ const App: React.FC = () => {
     return users
       .map(user => {
         const postCount = posts.filter(p => p.userId === user.id).length;
-        // This is a simplified score. A real app might use a more complex calculation.
         const score = postCount;
         return { user, score };
       })
@@ -454,6 +483,7 @@ const App: React.FC = () => {
              <div className="lg:grid lg:grid-cols-12 lg:gap-8">
               <div className="lg:col-span-8">
                  <div ref={feedRef} className="space-y-6">
+                  {currentUser && <button onClick={() => setUploadModalOpen(true)} className="w-full bg-festive-orange text-white font-bold py-3 px-6 rounded-full hover:bg-orange-600 transition-transform transform hover:scale-105 shadow-lg mb-6">¡Comparte tu Fiesta!</button>}
                   <FeedFilters sortBy={sortBy} onSortChange={handleSortChange} />
                   <Feed 
                     posts={sortedPosts} 

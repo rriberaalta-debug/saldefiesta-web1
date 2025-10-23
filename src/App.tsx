@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Post, User, Comment as CommentType, FilterOptions, UserStory, SortBy, TopContributor, TrendingLocation, LegalContentType, GeolocationStatus, Credentials, FiestaEvent } from './types';
-import { mockUsers, mockPosts, mockStories, cityCoordinates } from './constants';
+import { cityCoordinates } from './constants';
 import { legalTexts } from './legalTexts';
 import Header from './components/Header';
 import Feed from './components/Feed';
@@ -22,7 +22,7 @@ import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
-import { auth } from './services/firebase';
+import { auth, db } from './services/firebase';
 import { 
   onAuthStateChanged, 
   createUserWithEmailAndPassword, 
@@ -33,6 +33,7 @@ import {
   updateProfile,
   User as FirebaseUser
 } from 'firebase/auth';
+import { collection, query, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
 
 
 type View = 'feed' | 'post' | 'profile';
@@ -53,8 +54,8 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('feed');
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [comments, setComments] = useState<Record<string, CommentType[]>>({
      p1: [{id: 'c1', postId: 'p1', userId: 'u2', text: '¡Qué buena pinta! Estuve ahí el año pasado.', timestamp: new Date().toISOString()}],
   });
@@ -112,6 +113,33 @@ const App: React.FC = () => {
     // Limpiar el listener cuando el componente se desmonte
     return () => unsubscribe();
   }, []);
+  
+    // useEffect para cargar los posts desde Firestore
+  useEffect(() => {
+    const q = query(collection(db, "posts"), orderBy("timestamp", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const postsFromFirestore: Post[] = [];
+      querySnapshot.forEach((doc) => {
+        postsFromFirestore.push({ id: doc.id, ...doc.data() } as Post);
+      });
+      setPosts(postsFromFirestore);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // useEffect para cargar los usuarios desde Firestore
+  useEffect(() => {
+    const q = query(collection(db, "users"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const usersFromFirestore: User[] = [];
+      querySnapshot.forEach((doc) => {
+        usersFromFirestore.push({ id: doc.id, ...doc.data() } as User);
+      });
+      setUsers(usersFromFirestore);
+    });
+    return () => unsubscribe();
+  }, []);
+
 
   useEffect(() => {
     if (debouncedSearchQuery) {
@@ -230,21 +258,22 @@ const App: React.FC = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const finalUsername = username || email.split('@')[0];
+      const user = userCredential.user;
       
-      // Actualiza el perfil del usuario en Firebase para guardar el nombre de usuario
-      await updateProfile(userCredential.user, {
-        displayName: finalUsername,
-        photoURL: `https://picsum.photos/seed/${userCredential.user.uid}/100/100`
-      });
+      const photoURL = `https://picsum.photos/seed/${user.uid}/100/100`;
 
-      // Creamos un usuario local para la UI inmediatamente
-      const newUser: User = {
-        id: userCredential.user.uid,
+      await updateProfile(user, {
+        displayName: finalUsername,
+        photoURL: photoURL
+      });
+      
+      // Crear documento de usuario en Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, {
+        id: user.uid,
         username: finalUsername,
-        avatarUrl: `https://picsum.photos/seed/${userCredential.user.uid}/100/100`
-      };
-      setUsers(prev => [...prev, newUser]);
-      setCurrentUser(newUser);
+        avatarUrl: photoURL
+      });
 
       setSignUpModalOpen(false);
     } catch (error) {
@@ -256,7 +285,18 @@ const App: React.FC = () => {
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Crear o actualizar documento de usuario en Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, {
+        id: user.uid,
+        username: user.displayName || user.email?.split('@')[0],
+        avatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`
+      }, { merge: true }); // merge: true para no sobreescribir si ya existe
+
+
       setLoginModalOpen(false);
       setSignUpModalOpen(false);
     } catch (error) {

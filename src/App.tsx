@@ -329,6 +329,42 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateAvatar = async (file: File) => {
+    if (!currentUser || !auth.currentUser) {
+      alert("Debes iniciar sesión para cambiar tu foto.");
+      return;
+    }
+  
+    try {
+      // 1. Create a reference in Storage
+      const filePath = `avatars/${currentUser.id}`;
+      const storageRef = ref(storage, filePath);
+  
+      // 2. Upload the new image, overwriting any existing one
+      await uploadBytes(storageRef, file);
+  
+      // 3. Get the new download URL
+      const downloadURL = await getDownloadURL(storageRef);
+  
+      // 4. Update the profile in Firebase Auth
+      await updateProfile(auth.currentUser, { photoURL: downloadURL });
+  
+      // 5. Update the user document in Firestore
+      const userDocRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userDocRef, { avatarUrl: downloadURL });
+  
+      // 6. Update local state for an instant UI response
+      setCurrentUser(prevUser => {
+        if (!prevUser) return null;
+        return { ...prevUser, avatarUrl: downloadURL };
+      });
+  
+    } catch (error) {
+      console.error("Error al actualizar el avatar:", error);
+      alert("No se pudo actualizar la foto de perfil. Por favor, inténtalo de nuevo.");
+    }
+  };
+
   const handleLogin = async ({ email, password }: Credentials) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -595,6 +631,7 @@ const App: React.FC = () => {
             onBlockUser={handleBlockUser}
             onUnblockUser={handleUnblockUser}
             onOpenUploadModal={() => setUploadModalOpen(true)}
+            onUpdateAvatar={handleUpdateAvatar}
           />
         )}
       </main>

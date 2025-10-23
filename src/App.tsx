@@ -22,7 +22,19 @@ import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
-// FIX: Removed Firebase imports as firebase.ts is not configured for simulation mode.
+import { auth } from './services/firebase';
+import { 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut,
+  updateProfile,
+  User as FirebaseUser
+} from 'firebase/auth';
+
+
 type View = 'feed' | 'post' | 'profile';
 
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -51,8 +63,7 @@ const App: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  // FIX: Set initial authLoading to false as we are not waiting for Firebase auth state.
-  const [authLoading, setAuthLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
   const [isSignUpModalOpen, setSignUpModalOpen] = useState(false);
   const [isUploadModalOpen, setUploadModalOpen] = useState(false);
@@ -79,8 +90,29 @@ const App: React.FC = () => {
   const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>(null);
   
   const feedRef = useRef<HTMLDivElement>(null);
-  
-  // FIX: Removed Firebase onAuthStateChanged listener.
+
+  // Listener para el estado de autenticación de Firebase
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        // Usuario ha iniciado sesión
+        const appUser: User = {
+          id: firebaseUser.uid,
+          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'UsuarioAnónimo',
+          avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
+        };
+        setCurrentUser(appUser);
+      } else {
+        // Usuario ha cerrado sesión
+        setCurrentUser(null);
+      }
+      setAuthLoading(false);
+    });
+
+    // Limpiar el listener cuando el componente se desmonte
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (debouncedSearchQuery) {
       const performSearch = async () => {
@@ -184,50 +216,64 @@ const App: React.FC = () => {
     }
   };
 
-  // FIX: Reverted to mock login handler.
-  const handleLogin = async ({email, password}: Credentials) => {
-     const existingUser = users.find(u => u.username.toLowerCase() === email.split('@')[0].toLowerCase());
-     if (existingUser) {
-         setCurrentUser(existingUser);
-         setLoginModalOpen(false);
-     } else {
-         alert("Usuario de prueba no encontrado. Regístrate primero.");
-     }
+  const handleLogin = async ({ email, password }: Credentials) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setLoginModalOpen(false);
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
+      alert("Error al iniciar sesión. Comprueba tu email y contraseña.");
+    }
   };
 
-  // FIX: Reverted to mock sign up handler.
-  const handleSignUp = async ({email, password, username}: Credentials) => {
-    const finalUsername = username || email.split('@')[0];
-    const newUser: User = {
-        id: `u${Date.now()}`,
+  const handleSignUp = async ({ email, password, username }: Credentials) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const finalUsername = username || email.split('@')[0];
+      
+      // Actualiza el perfil del usuario en Firebase para guardar el nombre de usuario
+      await updateProfile(userCredential.user, {
+        displayName: finalUsername,
+        photoURL: `https://picsum.photos/seed/${userCredential.user.uid}/100/100`
+      });
+
+      // Creamos un usuario local para la UI inmediatamente
+      const newUser: User = {
+        id: userCredential.user.uid,
         username: finalUsername,
-        avatarUrl: `https://picsum.photos/seed/${finalUsername}/100/100`
-    };
-    setUsers(prev => [...prev, newUser]);
-    setCurrentUser(newUser);
-    setSignUpModalOpen(false);
+        avatarUrl: `https://picsum.photos/seed/${userCredential.user.uid}/100/100`
+      };
+      setUsers(prev => [...prev, newUser]);
+      setCurrentUser(newUser);
+
+      setSignUpModalOpen(false);
+    } catch (error) {
+      console.error("Error al registrarse:", error);
+      alert("Error al registrarse. Puede que el email ya esté en uso.");
+    }
   };
   
-  // FIX: Reverted to mock Google Sign In handler.
   const handleGoogleSignIn = async () => {
-     const mockGoogleUser: User = {
-        id: 'u-google',
-        username: 'UsuarioGoogle',
-        avatarUrl: 'https://picsum.photos/seed/google/100/100'
-     };
-     if (!users.find(u => u.id === mockGoogleUser.id)) {
-        setUsers(prev => [...prev, mockGoogleUser]);
-     }
-     setCurrentUser(mockGoogleUser);
-     setLoginModalOpen(false);
-     setSignUpModalOpen(false);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      setLoginModalOpen(false);
+      setSignUpModalOpen(false);
+    } catch (error) {
+      console.error("Error con el inicio de sesión de Google:", error);
+      alert("No se pudo iniciar sesión con Google. Inténtalo de nuevo.");
+    }
   };
 
-  // FIX: Reverted to mock logout handler.
   const handleLogout = async () => {
-    setCurrentUser(null);
-    handleCloseDetail();
+    try {
+      await signOut(auth);
+      handleCloseDetail();
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
   };
+
 
   const handleBlockUser = (userIdToBlock: string) => {
       if (!currentUser || userIdToBlock === currentUser.id) return;

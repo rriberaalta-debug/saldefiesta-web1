@@ -2,6 +2,7 @@ import React, { useState, useRef, ChangeEvent } from 'react';
 import { User, Post } from '../types';
 import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2, Trash2 } from 'lucide-react';
 
+// 1. Update interface to accept new props
 interface ProfileProps {
   user: User;
   posts: Post[];
@@ -19,6 +20,7 @@ interface ProfileProps {
 const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal, onUpdateAvatar, onRemoveAvatar }) => {
   const isBlocked = blockedUsers.has(user.id);
   const isOwnProfile = currentUser?.id === user.id;
+
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -55,12 +57,13 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
         setIsUploading(false);
     }
   };
-
+  
   const handleAvatarClick = () => {
     if (isOwnProfile && !isUploading) {
       fileInputRef.current?.click();
     }
   };
+
 
   return (
     <div className="max-w-4xl mx-auto bg-black/20 p-6 rounded-2xl animate-fade-in">

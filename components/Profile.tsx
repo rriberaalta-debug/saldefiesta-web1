@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, ChangeEvent } from 'react';
 import { User, Post } from '../types';
-import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2, Trash2 } from 'lucide-react';
 
 interface ProfileProps {
   user: User;
@@ -13,13 +14,16 @@ interface ProfileProps {
   onUnblockUser: (userId: string) => void;
   onOpenUploadModal: () => void;
   onUpdateAvatar: (file: File) => Promise<void>;
+  onRemoveAvatar: () => Promise<void>;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal, onUpdateAvatar }) => {
+const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal, onUpdateAvatar, onRemoveAvatar }) => {
   const isBlocked = blockedUsers.has(user.id);
-  const isOwnProfile = currentUser?.id === useir.id;
+  const isOwnProfile = currentUser?.id === user.id;
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const hasCustomAvatar = user.avatarUrl && !user.avatarUrl.includes('picsum.photos');
 
   const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -37,6 +41,18 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
       } finally {
         setIsUploading(false);
       }
+    }
+  };
+
+  const handleRemoveClick = async () => {
+    setIsUploading(true);
+    try {
+        await onRemoveAvatar();
+    } catch (error) {
+        console.error("Failed to remove avatar:", error);
+        alert("No se pudo eliminar la foto de perfil. Inténtalo de nuevo.");
+    } finally {
+        setIsUploading(false);
     }
   };
 
@@ -66,18 +82,32 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
                 onChange={handleAvatarChange}
                 disabled={isUploading}
               />
-              <button
-                onClick={handleAvatarClick}
-                disabled={isUploading}
-                className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                aria-label="Cambiar foto de perfil"
+              <div 
+                className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 {isUploading ? (
-                  <Loader2 className="animate-spin text-white" size={32} />
+                   <Loader2 className="animate-spin text-white" size={32} />
                 ) : (
-                  <Camera size={32} className="text-white" />
+                  <>
+                    <button
+                        onClick={handleAvatarClick}
+                        className="text-white hover:text-festive-orange"
+                        aria-label="Cambiar foto de perfil"
+                    >
+                        <Camera size={32} />
+                    </button>
+                    {hasCustomAvatar && (
+                        <button
+                            onClick={handleRemoveClick}
+                            className="text-white hover:text-red-500"
+                            aria-label="Eliminar foto de perfil"
+                        >
+                            <Trash2 size={32} />
+                        </button>
+                    )}
+                  </>
                 )}
-              </button>
+              </div>
             </>
           )}
         </div>

@@ -329,22 +329,16 @@ const App: React.FC = () => {
     }
 
     try {
-        // 1. Subir la nueva imagen a Firebase Storage
-        const filePath = `avatars/${currentUser.id}`; // Sobrescribe el avatar anterior
+        const filePath = `avatars/${currentUser.id}`; 
         const storageRef = ref(storage, filePath);
         await uploadBytes(storageRef, file);
-
-        // 2. Obtener la URL de descarga
         const downloadURL = await getDownloadURL(storageRef);
 
-        // 3. Actualizar el perfil en Firebase Authentication
         await updateProfile(auth.currentUser, { photoURL: downloadURL });
 
-        // 4. Actualizar el perfil en la base de datos de Firestore
         const userDocRef = doc(db, "users", currentUser.id);
         await updateDoc(userDocRef, { avatarUrl: downloadURL });
         
-        // 5. Actualizar el estado local para ver el cambio al instante
         setCurrentUser(prevUser => {
             if (!prevUser) return null;
             return { ...prevUser, avatarUrl: downloadURL };
@@ -353,6 +347,41 @@ const App: React.FC = () => {
     } catch (error) {
         console.error("Error al actualizar el avatar:", error);
         throw new Error("No se pudo actualizar la foto de perfil.");
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!currentUser || !auth.currentUser) return;
+
+    if (!window.confirm("¿Seguro que quieres eliminar tu foto de perfil?")) return;
+    
+    try {
+        const defaultAvatarUrl = `https://picsum.photos/seed/${currentUser.id}/100/100`;
+        
+        // Intentar eliminar la foto anterior de Storage
+        try {
+            const storageRef = ref(storage, `avatars/${currentUser.id}`);
+            await deleteObject(storageRef);
+        } catch (error) {
+            // Si no se encuentra, no es un problema. Puede que el usuario nunca subiera una.
+            if ((error as any).code !== 'storage/object-not-found') {
+                throw error; // Lanzar otros errores de storage
+            }
+        }
+
+        await updateProfile(auth.currentUser, { photoURL: defaultAvatarUrl });
+        
+        const userDocRef = doc(db, "users", currentUser.id);
+        await updateDoc(userDocRef, { avatarUrl: defaultAvatarUrl });
+        
+        setCurrentUser(prevUser => {
+            if (!prevUser) return null;
+            return { ...prevUser, avatarUrl: defaultAvatarUrl };
+        });
+
+    } catch (error) {
+        console.error("Error al eliminar el avatar:", error);
+        throw new Error("No se pudo eliminar la foto de perfil.");
     }
   };
 
@@ -623,6 +652,7 @@ const App: React.FC = () => {
             onUnblockUser={handleUnblockUser}
             onOpenUploadModal={() => setUploadModalOpen(true)}
             onUpdateAvatar={handleUpdateAvatar}
+            onRemoveAvatar={handleRemoveAvatar}
           />
         )}
       </main>

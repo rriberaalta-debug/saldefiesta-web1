@@ -300,9 +300,12 @@ const App: React.FC = () => {
 
     if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.')) {
       try {
+        // Crear una referencia al archivo en Storage usando la URL
         const storageRef = ref(storage, postToDelete.mediaUrl);
+        // Borrar el archivo
         await deleteObject(storageRef);
 
+        // Borrar el documento de Firestore
         const postDocRef = doc(db, 'posts', postId);
         await deleteDoc(postDocRef);
 
@@ -310,8 +313,10 @@ const App: React.FC = () => {
         
       } catch (error) {
         console.error("Error al eliminar la publicación:", error);
-        if ((error as any).code?.includes('storage/object-not-found')) {
-           console.warn("Storage object not found, but proceeding to delete Firestore entry.");
+        // Si el archivo no existe en Storage (puede pasar si hay un error previo),
+        // borramos igualmente la entrada de la base de datos.
+        if ((error as any).code === 'storage/object-not-found') {
+           console.warn("El archivo en Storage no se encontró, pero se procederá a eliminar la entrada de Firestore.");
             const postDocRef = doc(db, 'posts', postId);
             await deleteDoc(postDocRef);
             handleCloseDetail();
@@ -319,69 +324,6 @@ const App: React.FC = () => {
           alert("Ocurrió un error al eliminar la publicación. Por favor, inténtalo de nuevo.");
         }
       }
-    }
-  };
-
-  const handleUpdateAvatar = async (file: File) => {
-    if (!currentUser || !auth.currentUser) {
-        alert("Debes iniciar sesión para cambiar tu foto de perfil.");
-        return;
-    }
-
-    try {
-        const filePath = `avatars/${currentUser.id}`; 
-        const storageRef = ref(storage, filePath);
-        await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-
-        await updateProfile(auth.currentUser, { photoURL: downloadURL });
-
-        const userDocRef = doc(db, "users", currentUser.id);
-        await updateDoc(userDocRef, { avatarUrl: downloadURL });
-        
-        setCurrentUser(prevUser => {
-            if (!prevUser) return null;
-            return { ...prevUser, avatarUrl: downloadURL };
-        });
-
-    } catch (error) {
-        console.error("Error al actualizar el avatar:", error);
-        throw new Error("No se pudo actualizar la foto de perfil.");
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    if (!currentUser || !auth.currentUser) return;
-
-    if (!window.confirm("¿Seguro que quieres eliminar tu foto de perfil?")) return;
-    
-    try {
-        const defaultAvatarUrl = `https://picsum.photos/seed/${currentUser.id}/100/100`;
-        
-        // Intentar eliminar la foto anterior de Storage
-        try {
-            const storageRef = ref(storage, `avatars/${currentUser.id}`);
-            await deleteObject(storageRef);
-        } catch (error) {
-            // Si no se encuentra, no es un problema. Puede que el usuario nunca subiera una.
-            if ((error as any).code !== 'storage/object-not-found') {
-                throw error; // Lanzar otros errores de storage
-            }
-        }
-
-        await updateProfile(auth.currentUser, { photoURL: defaultAvatarUrl });
-        
-        const userDocRef = doc(db, "users", currentUser.id);
-        await updateDoc(userDocRef, { avatarUrl: defaultAvatarUrl });
-        
-        setCurrentUser(prevUser => {
-            if (!prevUser) return null;
-            return { ...prevUser, avatarUrl: defaultAvatarUrl };
-        });
-
-    } catch (error) {
-        console.error("Error al eliminar el avatar:", error);
-        throw new Error("No se pudo eliminar la foto de perfil.");
     }
   };
 
@@ -453,6 +395,81 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateAvatar = async (file: File) => {
+    if (!currentUser || !auth.currentUser) {
+      alert("Debes iniciar sesión para cambiar tu foto de perfil.");
+      return;
+    }
+
+    try {
+      // Delete old avatar if it's a custom one from storage
+      const oldAvatarUrl = auth.currentUser.photoURL;
+      if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
+        try {
+          const oldStorageRef = ref(storage, oldAvatarUrl);
+          await deleteObject(oldStorageRef);
+        } catch (error) {
+          if ((error as any).code !== 'storage/object-not-found') {
+            console.warn("Could not delete old avatar. It might not exist.", error);
+          }
+        }
+      }
+
+      // Upload new file
+      const filePath = `avatars/${currentUser.id}/${file.name}`;
+      const newStorageRef = ref(storage, filePath);
+      await uploadBytes(newStorageRef, file);
+      const newAvatarUrl = await getDownloadURL(newStorageRef);
+
+      // Update Firebase Auth profile
+      await updateProfile(auth.currentUser, { photoURL: newAvatarUrl });
+
+      // Update user document in Firestore
+      const userDocRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userDocRef, { avatarUrl: newAvatarUrl });
+
+      // Update local state
+      setCurrentUser(prev => prev ? { ...prev, avatarUrl: newAvatarUrl } : null);
+    } catch (error) {
+      console.error("Error al actualizar el avatar:", error);
+      alert("Ocurrió un error al actualizar tu foto de perfil.");
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!currentUser || !auth.currentUser) {
+      alert("Debes iniciar sesión para eliminar tu foto de perfil.");
+      return;
+    }
+
+    try {
+      // Delete file from storage if it's a custom one
+      const oldAvatarUrl = auth.currentUser.photoURL;
+      if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
+        try {
+          const oldStorageRef = ref(storage, oldAvatarUrl);
+          await deleteObject(oldStorageRef);
+        } catch (error) {
+          if ((error as any).code !== 'storage/object-not-found') {
+            console.warn("Could not delete avatar from storage. It might not exist.", error);
+          }
+        }
+      }
+
+      // Generate and set default URL
+      const defaultAvatarUrl = `https://picsum.photos/seed/${currentUser.id}/100/100`;
+      await updateProfile(auth.currentUser, { photoURL: defaultAvatarUrl });
+      
+      const userDocRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userDocRef, { avatarUrl: defaultAvatarUrl });
+
+      // Update local state
+      setCurrentUser(prev => prev ? { ...prev, avatarUrl: defaultAvatarUrl } : null);
+    } catch (error) {
+      console.error("Error al eliminar el avatar:", error);
+      alert("Ocurrió un error al eliminar tu foto de perfil.");
+    }
+  };
 
   const handleBlockUser = (userIdToBlock: string) => {
       if (!currentUser || userIdToBlock === currentUser.id) return;

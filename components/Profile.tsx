@@ -2,7 +2,6 @@ import React, { useState, useRef, ChangeEvent } from 'react';
 import { User, Post } from '../types';
 import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2, Trash2 } from 'lucide-react';
 
-// 1. Update interface to accept new props
 interface ProfileProps {
   user: User;
   posts: Post[];

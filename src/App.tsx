@@ -416,7 +416,7 @@ const App: React.FC = () => {
       }
 
       // Upload new file
-      const filePath = `avatars/${currentUser.id}/${file.name}`;
+      const filePath = `avatars/${currentUser.id}/${Date.now()}_${file.name}`;
       const newStorageRef = ref(storage, filePath);
       await uploadBytes(newStorageRef, file);
       const newAvatarUrl = await getDownloadURL(newStorageRef);

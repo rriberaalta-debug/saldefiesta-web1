@@ -1,6 +1,6 @@
 import React, { useState, useRef, ChangeEvent } from 'react';
 import { User, Post } from '../types';
-import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2, Trash2, User as UserIcon } from 'lucide-react';
 
 interface ProfileProps {
   user: User;
@@ -23,7 +23,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const hasCustomAvatar = user.avatarUrl && !user.avatarUrl.includes('picsum.photos');
+  const hasCustomAvatar = user.avatarUrl && user.avatarUrl !== '';
 
   const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -45,7 +45,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
   };
 
   const handleRemoveClick = async () => {
-    if (!window.confirm("¿Seguro que quieres eliminar tu foto de perfil? Se restaurará la imagen por defecto.")) return;
+    if (!window.confirm("¿Seguro que quieres eliminar tu foto de perfil?")) return;
     setIsUploading(true);
     try {
         await onRemoveAvatar();
@@ -71,7 +71,13 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
 
       <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 mb-8">
         <div className="relative flex-shrink-0">
-          <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange" />
+          {user.avatarUrl ? (
+             <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange object-cover" />
+          ) : (
+            <div className="w-32 h-32 rounded-full border-4 border-festive-orange bg-gray-700 flex items-center justify-center">
+              <UserIcon className="text-gray-400" size={64} />
+            </div>
+          )}
         </div>
         <div className="flex-1">
           <h1 className="text-4xl font-bold">{user.username}</h1>
@@ -93,7 +99,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
                 className="bg-sky-blue/80 text-white font-semibold py-2 px-4 rounded-full hover:bg-sky-blue transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
-                Cambiar Foto
+                Subir / Cambiar Foto
               </button>
               
               {hasCustomAvatar && (

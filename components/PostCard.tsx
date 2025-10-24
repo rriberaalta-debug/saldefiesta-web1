@@ -1,7 +1,6 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Post, User } from '../types';
-import { Heart, MessageCircle, Volume2, VolumeX } from 'lucide-react';
+import { Heart, MessageCircle, Volume2, VolumeX, User as UserIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -107,8 +106,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, user, currentUser, onPostSele
          </div>
       </div>
       <div className="p-4 flex flex-col flex-grow">
-        <div className="flex items-center mb-4" onClick={handleUserClick}>
-          <img src={user?.avatarUrl || `https://picsum.photos/seed/${post.userId}/100/100`} alt={user?.username} className="w-10 h-10 rounded-full mr-3 border-2 border-festive-orange" />
+        <div className="flex items-center mb-4 cursor-pointer" onClick={handleUserClick}>
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt={user.username} className="w-10 h-10 rounded-full mr-3 border-2 border-festive-orange object-cover" />
+          ) : (
+            <div className="w-10 h-10 rounded-full mr-3 border-2 border-festive-orange bg-gray-700 flex items-center justify-center">
+              <UserIcon className="text-gray-400" size={20} />
+            </div>
+          )}
           <div>
             <p className="font-semibold text-white hover:underline">{user?.username || 'Usuario'}</p>
             <p className="text-xs text-gray-300">{timeAgo}</p>

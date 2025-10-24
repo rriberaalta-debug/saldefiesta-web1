@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Post, User, Comment as CommentType } from '../types';
-import { X, Heart, MessageCircle, Send, ShieldOff, Share2, Trash2 } from 'lucide-react';
+import { X, Heart, MessageCircle, Send, ShieldOff, Share2, Trash2, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ShareModal from './ShareModal';
@@ -28,7 +28,15 @@ const Comment: React.FC<{
   onBlockUser: (userId: string) => void;
 }> = ({ comment, user, onUserSelect, currentUser, onBlockUser }) => (
     <div className="flex items-start space-x-3 py-3 border-b border-white/10 group">
-      <img src={user?.avatarUrl} alt={user?.username} className="w-9 h-9 rounded-full cursor-pointer" onClick={() => onUserSelect(user?.id || '')}/>
+      <div className="cursor-pointer" onClick={() => onUserSelect(user?.id || '')}>
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt={user.username} className="w-9 h-9 rounded-full object-cover"/>
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center">
+            <UserIcon className="text-gray-400" size={18} />
+          </div>
+        )}
+      </div>
       <div className="flex-1">
         <div className="flex items-center space-x-2">
           <span className="font-semibold text-sm cursor-pointer hover:underline" onClick={() => onUserSelect(user?.id || '')}>{user?.username}</span>
@@ -70,7 +78,6 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, user, comments, users, on
     };
 
     const handleDeleteClick = () => {
-      // Direct deletion without confirmation for AI Studio environment
       onDeletePost(post.id);
     };
 
@@ -89,7 +96,13 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, user, comments, users, on
                     <div className="lg:w-1/2 flex flex-col">
                         <div className="flex items-start justify-between mb-4 gap-4">
                             <div className="flex items-center cursor-pointer" onClick={() => onUserSelect(user.id)}>
-                                <img src={user.avatarUrl} alt={user.username} className="w-12 h-12 rounded-full mr-4 border-2 border-festive-orange"/>
+                              {user.avatarUrl ? (
+                                <img src={user.avatarUrl} alt={user.username} className="w-12 h-12 rounded-full mr-4 border-2 border-festive-orange object-cover"/>
+                              ) : (
+                                <div className="w-12 h-12 rounded-full mr-4 border-2 border-festive-orange bg-gray-700 flex items-center justify-center">
+                                  <UserIcon className="text-gray-400" size={24} />
+                                </div>
+                              )}
                                 <div>
                                     <p className="font-bold text-lg hover:underline">{user.username}</p>
                                     <p className="text-sm text-gray-300">{format(getPostDate(post.timestamp), "d 'de' MMMM, yyyy 'a las' H:mm", { locale: es })}</p>

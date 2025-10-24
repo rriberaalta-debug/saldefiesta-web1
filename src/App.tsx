@@ -98,7 +98,7 @@ const App: React.FC = () => {
         const appUser: User = {
           id: firebaseUser.uid,
           username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'UsuarioAnónimo',
-          avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
+          avatarUrl: firebaseUser.photoURL || '',
         };
         setCurrentUser(appUser);
       } else {
@@ -343,7 +343,7 @@ const App: React.FC = () => {
       const finalUsername = username || email.split('@')[0];
       const user = userCredential.user;
       
-      const photoURL = `https://picsum.photos/seed/${user.uid}/100/100`;
+      const photoURL = ''; // No more default photo
 
       await updateProfile(user, {
         displayName: finalUsername,
@@ -374,7 +374,7 @@ const App: React.FC = () => {
       await setDoc(userDocRef, {
         id: user.uid,
         username: user.displayName || user.email?.split('@')[0],
-        avatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`
+        avatarUrl: user.photoURL || ''
       }, { merge: true });
 
 
@@ -450,7 +450,7 @@ const App: React.FC = () => {
         }
       }
 
-      const defaultAvatarUrl = `https://picsum.photos/seed/${currentUser.id}/100/100`;
+      const defaultAvatarUrl = ''; // Back to empty
       await updateProfile(auth.currentUser, { photoURL: defaultAvatarUrl });
       
       const userDocRef = doc(db, 'users', currentUser.id);

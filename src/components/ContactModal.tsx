@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, AtSign, Send, MessageSquare } from 'lucide-react';
+import { X, Send } from 'lucide-react';
 
 interface ContactModalProps {
   onClose: () => void;

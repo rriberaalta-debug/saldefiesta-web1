@@ -58,10 +58,8 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
     }
   };
   
-  const handleAvatarClick = () => {
-    if (isOwnProfile && !isUploading) {
-      fileInputRef.current?.click();
-    }
+  const handleChangePhotoClick = () => {
+    fileInputRef.current?.click();
   };
 
 
@@ -91,7 +89,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
                 disabled={isUploading}
               />
               <button
-                onClick={handleAvatarClick}
+                onClick={handleChangePhotoClick}
                 disabled={isUploading}
                 className="bg-sky-blue/80 text-white font-semibold py-2 px-4 rounded-full hover:bg-sky-blue transition-colors flex items-center gap-2 disabled:opacity-50"
               >

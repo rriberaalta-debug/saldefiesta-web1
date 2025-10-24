@@ -402,7 +402,6 @@ const App: React.FC = () => {
     }
 
     try {
-      // Delete old avatar if it's a custom one from storage
       const oldAvatarUrl = auth.currentUser.photoURL;
       if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
         try {
@@ -410,25 +409,21 @@ const App: React.FC = () => {
           await deleteObject(oldStorageRef);
         } catch (error) {
           if ((error as any).code !== 'storage/object-not-found') {
-            console.warn("Could not delete old avatar. It might not exist.", error);
+            console.warn("No se pudo borrar el avatar antiguo. Puede que no existiera.", error);
           }
         }
       }
 
-      // Upload new file
-      const filePath = `avatars/${currentUser.id}/${Date.now()}_${file.name}`;
+      const filePath = `avatars/${currentUser.id}/${file.name}`;
       const newStorageRef = ref(storage, filePath);
       await uploadBytes(newStorageRef, file);
       const newAvatarUrl = await getDownloadURL(newStorageRef);
 
-      // Update Firebase Auth profile
       await updateProfile(auth.currentUser, { photoURL: newAvatarUrl });
 
-      // Update user document in Firestore
       const userDocRef = doc(db, 'users', currentUser.id);
       await updateDoc(userDocRef, { avatarUrl: newAvatarUrl });
 
-      // Update local state
       setCurrentUser(prev => prev ? { ...prev, avatarUrl: newAvatarUrl } : null);
     } catch (error) {
       console.error("Error al actualizar el avatar:", error);
@@ -443,7 +438,6 @@ const App: React.FC = () => {
     }
 
     try {
-      // Delete file from storage if it's a custom one
       const oldAvatarUrl = auth.currentUser.photoURL;
       if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
         try {
@@ -451,25 +445,24 @@ const App: React.FC = () => {
           await deleteObject(oldStorageRef);
         } catch (error) {
           if ((error as any).code !== 'storage/object-not-found') {
-            console.warn("Could not delete avatar from storage. It might not exist.", error);
+            console.warn("No se pudo borrar el avatar del Storage. Puede que no existiera.", error);
           }
         }
       }
 
-      // Generate and set default URL
       const defaultAvatarUrl = `https://picsum.photos/seed/${currentUser.id}/100/100`;
       await updateProfile(auth.currentUser, { photoURL: defaultAvatarUrl });
       
       const userDocRef = doc(db, 'users', currentUser.id);
       await updateDoc(userDocRef, { avatarUrl: defaultAvatarUrl });
 
-      // Update local state
       setCurrentUser(prev => prev ? { ...prev, avatarUrl: defaultAvatarUrl } : null);
     } catch (error) {
       console.error("Error al eliminar el avatar:", error);
       alert("Ocurrió un error al eliminar tu foto de perfil.");
     }
   };
+
 
   const handleBlockUser = (userIdToBlock: string) => {
       if (!currentUser || userIdToBlock === currentUser.id) return;
@@ -593,7 +586,7 @@ const App: React.FC = () => {
         currentUser={currentUser}
         onSearch={setSearchQuery}
         isSearching={isSearching}
-        onProfileClick={() => handleUserSelect(currentUser!.id)} 
+        onProfileClick={() => currentUser && handleUserSelect(currentUser.id)} 
         onHomeClick={handleCloseDetail}
         onApplyFilters={() => {}}
         activeFilterCount={0}

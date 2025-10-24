@@ -1,7 +1,6 @@
-
-import React from 'react';
+import React, { useState, useRef, ChangeEvent } from 'react';
 import { User, Post } from '../types';
-import { ArrowLeft, ShieldOff, UserCheck, Upload } from 'lucide-react';
+import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2, Trash2 } from 'lucide-react';
 
 interface ProfileProps {
   user: User;
@@ -13,11 +12,55 @@ interface ProfileProps {
   onBlockUser: (userId: string) => void;
   onUnblockUser: (userId: string) => void;
   onOpenUploadModal: () => void;
+  onUpdateAvatar: (file: File) => Promise<void>;
+  onRemoveAvatar: () => Promise<void>;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal }) => {
+const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, currentUser, blockedUsers, onBlockUser, onUnblockUser, onOpenUploadModal, onUpdateAvatar, onRemoveAvatar }) => {
   const isBlocked = blockedUsers.has(user.id);
   const isOwnProfile = currentUser?.id === user.id;
+
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const hasCustomAvatar = user.avatarUrl && !user.avatarUrl.includes('picsum.photos');
+
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecciona un archivo de imagen.');
+        return;
+      }
+      setIsUploading(true);
+      try {
+        await onUpdateAvatar(file);
+      } catch (error) {
+        console.error("Failed to update avatar:", error);
+        alert("No se pudo actualizar la foto de perfil. Inténtalo de nuevo.");
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const handleRemoveClick = async () => {
+    if (!window.confirm("¿Seguro que quieres eliminar tu foto de perfil? Se restaurará la imagen por defecto.")) return;
+    setIsUploading(true);
+    try {
+        await onRemoveAvatar();
+    } catch (error) {
+        console.error("Failed to remove avatar:", error);
+        alert("No se pudo eliminar la foto de perfil. Inténtalo de nuevo.");
+    } finally {
+        setIsUploading(false);
+    }
+  };
+  
+  const handleChangePhotoClick = () => {
+    fileInputRef.current?.click();
+  };
+
 
   return (
     <div className="max-w-4xl mx-auto bg-black/20 p-6 rounded-2xl animate-fade-in">
@@ -27,20 +70,46 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
       </button>
 
       <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 mb-8">
-        <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange" />
+        <div className="relative flex-shrink-0">
+          <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange" />
+        </div>
         <div className="flex-1">
           <h1 className="text-4xl font-bold">{user.username}</h1>
           <p className="text-lg text-gray-300 mt-2">{posts.length} Publicaciones</p>
+          
           {isOwnProfile && (
-            <button
-              onClick={onOpenUploadModal}
-              className="mt-4 bg-festive-orange text-white font-bold py-2 px-6 rounded-full hover:bg-orange-600 transition-transform transform hover:scale-105 flex items-center gap-2"
-            >
-              <Upload size={20} />
-              Subir Publicación
-            </button>
+            <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                hidden
+                accept="image/*"
+                onChange={handleAvatarChange}
+                disabled={isUploading}
+              />
+              <button
+                onClick={handleChangePhotoClick}
+                disabled={isUploading}
+                className="bg-sky-blue/80 text-white font-semibold py-2 px-4 rounded-full hover:bg-sky-blue transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+                Cambiar Foto
+              </button>
+              
+              {hasCustomAvatar && (
+                <button
+                  onClick={handleRemoveClick}
+                  disabled={isUploading}
+                  className="bg-red-500/80 text-white font-semibold py-2 px-4 rounded-full hover:bg-red-500 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Trash2 size={20} />
+                  Eliminar Foto
+                </button>
+              )}
+            </div>
           )}
         </div>
+
         {currentUser && !isOwnProfile && (
             isBlocked ? (
                 <button
@@ -61,6 +130,18 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
             )
         )}
       </div>
+
+       {isOwnProfile && (
+          <div className="mb-8">
+             <button
+                onClick={onOpenUploadModal}
+                className="w-full bg-festive-orange text-white font-bold py-3 px-6 rounded-full hover:bg-orange-600 transition-transform transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+              >
+                <Upload size={20} />
+                Subir Nueva Publicación
+              </button>
+          </div>
+        )}
 
       <div>
         <h2 className="text-2xl font-bold mb-4 border-b-2 border-festive-orange pb-2">Publicaciones</h2>
@@ -86,7 +167,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
             ))}
           </div>
         ) : (
-          <p className="text-gray-400">Este usuario aún no ha publicado nada.</p>
+          <p className="text-gray-400">{isOwnProfile ? 'Aún no has publicado nada. ¡Anímate a compartir tu primera fiesta!' : 'Este usuario aún no ha publicado nada.'}</p>
         )}
       </div>
     </div>

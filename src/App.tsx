@@ -19,6 +19,7 @@ import Footer from './components/Footer';
 import LegalModal from './components/LegalModal';
 import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
+import ContactModal from './components/ContactModal'; // Importar el nuevo componente
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
 import { auth, db, storage } from './services/firebase';
@@ -68,6 +69,7 @@ const App: React.FC = () => {
   const [isSignUpModalOpen, setSignUpModalOpen] = useState(false);
   const [isUploadModalOpen, setUploadModalOpen] = useState(false);
   const [isFiestaFinderOpen, setFiestaFinderOpen] = useState(false);
+  const [isContactModalOpen, setContactModalOpen] = useState(false); // Nuevo estado
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [legalModalContent, setLegalModalContent] = useState<LegalContentType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -696,7 +698,14 @@ const App: React.FC = () => {
         />
       )}
 
-      <Footer onLegalLinkClick={handleOpenLegalModal} />
+      {isContactModalOpen && (
+        <ContactModal 
+          onClose={() => setContactModalOpen(false)}
+          recipientEmail="ifg1967@hotmail.com"
+        />
+      )}
+
+      <Footer onLegalLinkClick={handleOpenLegalModal} onContactClick={() => setContactModalOpen(true)} />
     </div>
   );
 };

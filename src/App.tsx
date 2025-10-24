@@ -35,6 +35,7 @@ import {
 import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, increment, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
+const ADMIN_UID = '6W4Ikpge9WXQJ3elbuDiTW7Cxht1';
 
 type View = 'feed' | 'post' | 'profile';
 
@@ -291,21 +292,26 @@ const App: React.FC = () => {
   
   const handleDeletePost = async (postId: string) => {
     if (!currentUser) return;
+    const isAdmin = currentUser.id === ADMIN_UID;
 
     const postToDelete = posts.find(p => p.id === postId);
-    if (!postToDelete || postToDelete.userId !== currentUser.id) {
+    if (!postToDelete) {
+      alert("La publicación no existe.");
+      return;
+    }
+
+    if (postToDelete.userId !== currentUser.id && !isAdmin) {
       alert("No tienes permiso para borrar esta publicación.");
       return;
     }
 
-    if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.')) {
+    const confirmationMessage = `¿Estás seguro de que quieres eliminar esta publicación? ${isAdmin && postToDelete.userId !== currentUser.id ? '(Como Administrador)' : ''} Esta acción no se puede deshacer.`;
+
+    if (window.confirm(confirmationMessage)) {
       try {
-        // Crear una referencia al archivo en Storage usando la URL
         const storageRef = ref(storage, postToDelete.mediaUrl);
-        // Borrar el archivo
         await deleteObject(storageRef);
 
-        // Borrar el documento de Firestore
         const postDocRef = doc(db, 'posts', postId);
         await deleteDoc(postDocRef);
 
@@ -313,8 +319,6 @@ const App: React.FC = () => {
         
       } catch (error) {
         console.error("Error al eliminar la publicación:", error);
-        // Si el archivo no existe en Storage (puede pasar si hay un error previo),
-        // borramos igualmente la entrada de la base de datos.
         if ((error as any).code === 'storage/object-not-found') {
            console.warn("El archivo en Storage no se encontró, pero se procederá a eliminar la entrada de Firestore.");
             const postDocRef = doc(db, 'posts', postId);
@@ -648,6 +652,7 @@ const App: React.FC = () => {
             onBlockUser={handleBlockUser}
             onDeletePost={handleDeletePost}
             isOwner={currentUser?.id === selectedPost.userId}
+            isAdmin={currentUser?.id === ADMIN_UID}
           />
         )}
         {view === 'profile' && selectedUser && (

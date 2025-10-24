@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, ChangeEvent } from 'react';
 import { User, Post } from '../types';
 import { ArrowLeft, ShieldOff, UserCheck, Upload, Camera, Loader2, Trash2 } from 'lucide-react';
@@ -70,10 +69,15 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
       </button>
 
       <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 mb-8">
-        <div className="relative group flex-shrink-0">
+        <div className="relative flex-shrink-0">
           <img src={user.avatarUrl} alt={user.username} className="w-32 h-32 rounded-full border-4 border-festive-orange" />
+        </div>
+        <div className="flex-1">
+          <h1 className="text-4xl font-bold">{user.username}</h1>
+          <p className="text-lg text-gray-300 mt-2">{posts.length} Publicaciones</p>
+          
           {isOwnProfile && (
-            <>
+            <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-3">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -82,48 +86,37 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
                 onChange={handleAvatarChange}
                 disabled={isUploading}
               />
-              <div 
-                className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity"
+              <button
+                onClick={handleAvatarClick}
+                disabled={isUploading}
+                className="bg-sky-blue/80 text-white font-semibold py-2 px-4 rounded-full hover:bg-sky-blue transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                {isUploading ? (
-                   <Loader2 className="animate-spin text-white" size={32} />
-                ) : (
-                  <>
-                    <button
-                        onClick={handleAvatarClick}
-                        className="text-white hover:text-festive-orange"
-                        aria-label="Cambiar foto de perfil"
-                    >
-                        <Camera size={32} />
-                    </button>
-                    {hasCustomAvatar && (
-                        <button
-                            onClick={handleRemoveClick}
-                            className="text-white hover:text-red-500"
-                            aria-label="Eliminar foto de perfil"
-                        >
-                            <Trash2 size={32} />
-                        </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </>
+                {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+                Cambiar Foto
+              </button>
+              
+              {hasCustomAvatar && (
+                <button
+                  onClick={handleRemoveClick}
+                  disabled={isUploading}
+                  className="bg-red-500/80 text-white font-semibold py-2 px-4 rounded-full hover:bg-red-500 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Trash2 size={20} />
+                  Eliminar Foto
+                </button>
+              )}
+
+              <button
+                onClick={onOpenUploadModal}
+                className="bg-festive-orange text-white font-bold py-2 px-4 rounded-full hover:bg-orange-600 transition-colors flex items-center gap-2"
+              >
+                <Upload size={20} />
+                Subir Post
+              </button>
+            </div>
           )}
         </div>
-        <div className="flex-1">
-          <h1 className="text-4xl font-bold">{user.username}</h1>
-          <p className="text-lg text-gray-300 mt-2">{posts.length} Publicaciones</p>
-          {isOwnProfile && (
-            <button
-              onClick={onOpenUploadModal}
-              className="mt-4 bg-festive-orange text-white font-bold py-2 px-6 rounded-full hover:bg-orange-600 transition-transform transform hover:scale-105 flex items-center gap-2"
-            >
-              <Upload size={20} />
-              Subir Publicación
-            </button>
-          )}
-        </div>
+
         {currentUser && !isOwnProfile && (
             isBlocked ? (
                 <button

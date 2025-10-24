@@ -394,7 +394,7 @@ const App: React.FC = () => {
       console.error("Error al cerrar sesión:", error);
     }
   };
-
+  
   const handleUpdateAvatar = async (file: File) => {
     if (!currentUser || !auth.currentUser) {
       alert("Debes iniciar sesión para cambiar tu foto de perfil.");

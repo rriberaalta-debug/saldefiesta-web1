@@ -44,6 +44,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
   };
 
   const handleRemoveClick = async () => {
+    if (!window.confirm("¿Seguro que quieres eliminar tu foto de perfil? Se restaurará la imagen por defecto.")) return;
     setIsUploading(true);
     try {
         await onRemoveAvatar();
@@ -105,14 +106,6 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
                   Eliminar Foto
                 </button>
               )}
-
-              <button
-                onClick={onOpenUploadModal}
-                className="bg-festive-orange text-white font-bold py-2 px-4 rounded-full hover:bg-orange-600 transition-colors flex items-center gap-2"
-              >
-                <Upload size={20} />
-                Subir Post
-              </button>
             </div>
           )}
         </div>
@@ -138,6 +131,18 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
         )}
       </div>
 
+       {isOwnProfile && (
+          <div className="mb-8">
+             <button
+                onClick={onOpenUploadModal}
+                className="w-full bg-festive-orange text-white font-bold py-3 px-6 rounded-full hover:bg-orange-600 transition-transform transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+              >
+                <Upload size={20} />
+                Subir Nueva Publicación
+              </button>
+          </div>
+        )}
+
       <div>
         <h2 className="text-2xl font-bold mb-4 border-b-2 border-festive-orange pb-2">Publicaciones</h2>
         {isBlocked ? (
@@ -162,7 +167,7 @@ const Profile: React.FC<ProfileProps> = ({ user, posts, onPostSelect, onBack, cu
             ))}
           </div>
         ) : (
-          <p className="text-gray-400">Este usuario aún no ha publicado nada.</p>
+          <p className="text-gray-400">{isOwnProfile ? 'Aún no has publicado nada. ¡Anímate a compartir tu primera fiesta!' : 'Este usuario aún no ha publicado nada.'}</p>
         )}
       </div>
     </div>

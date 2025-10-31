@@ -1,4 +1,3 @@
-// src/components/AboutModal.tsx
 
 import React from 'react';
 import { X, Users } from 'lucide-react';

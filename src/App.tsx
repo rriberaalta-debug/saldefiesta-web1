@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Post, User, Comment as CommentType, FilterOptions, UserStory, SortBy, TopContributor, TrendingLocation, LegalContentType, GeolocationStatus, Credentials, FiestaEvent } from './types';
 import { cityCoordinates } from './constants';
 import { legalTexts } from './legalTexts';
+import { aboutText } from './aboutText';
 import Header from './components/Header';
 import Feed from './components/Feed';
 import PostDetail from './components/PostDetail';
@@ -19,7 +21,9 @@ import Footer from './components/Footer';
 import LegalModal from './components/LegalModal';
 import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
-import ContactModal from './components/ContactModal'; // Importar el nuevo componente
+import ContactModal from './components/ContactModal';
+import AboutModal from './components/AboutModal';
+import NotificationPermissionModal from './components/NotificationPermissionModal';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
 import { auth, db, storage } from './services/firebase';
@@ -33,7 +37,7 @@ import {
   updateProfile,
   User as FirebaseUser
 } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, increment, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, increment, deleteDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const ADMIN_UID = '6W4Ikpge9WXQJ3elbuDiTW7Cxht1';
@@ -69,7 +73,9 @@ const App: React.FC = () => {
   const [isSignUpModalOpen, setSignUpModalOpen] = useState(false);
   const [isUploadModalOpen, setUploadModalOpen] = useState(false);
   const [isFiestaFinderOpen, setFiestaFinderOpen] = useState(false);
-  const [isContactModalOpen, setContactModalOpen] = useState(false); // Nuevo estado
+  const [isContactModalOpen, setContactModalOpen] = useState(false);
+  const [isAboutModalOpen, setAboutModalOpen] = useState(false);
+  const [isNotificationPermissionModalOpen, setNotificationPermissionModalOpen] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [legalModalContent, setLegalModalContent] = useState<LegalContentType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,23 +101,34 @@ const App: React.FC = () => {
 
   // Listener para el estado de autenticación de Firebase
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // Usuario ha iniciado sesión
-        const appUser: User = {
-          id: firebaseUser.uid,
-          username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'UsuarioAnónimo',
-          avatarUrl: firebaseUser.photoURL || '',
-        };
-        setCurrentUser(appUser);
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        // Escuchar cambios en el documento del usuario en tiempo real
+        const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
+          if (userDocSnap.exists()) {
+            setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
+          } else {
+             const newUser = {
+                id: firebaseUser.uid,
+                username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'UsuarioAnónimo',
+                avatarUrl: firebaseUser.photoURL || '',
+                following: [],
+                followers: [],
+                followingCount: 0,
+                followersCount: 0,
+            };
+            setDoc(userDocRef, newUser).then(() => setCurrentUser(newUser as User));
+          }
+        });
+         setAuthLoading(false);
+        return () => unsubscribeUser(); // Cleanup user snapshot listener
       } else {
-        // Usuario ha cerrado sesión
         setCurrentUser(null);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
 
-    // Limpiar el listener cuando el componente se desmonte
     return () => unsubscribe();
   }, []);
   
@@ -260,15 +277,10 @@ const App: React.FC = () => {
     }
 
     try {
-        // 1. Subir archivo a Firebase Storage
         const filePath = `posts/${currentUser.id}/${Date.now()}_${formData.file.name}`;
         const storageRef = ref(storage, filePath);
         const uploadResult = await uploadBytes(storageRef, formData.file);
-        
-        // 2. Obtener la URL de descarga del archivo
         const downloadURL = await getDownloadURL(uploadResult.ref);
-
-        // 3. Crear el documento del post en Firestore
         const newPost = {
             userId: currentUser.id,
             title: formData.title,
@@ -281,9 +293,7 @@ const App: React.FC = () => {
             likedBy: [],
             commentCount: 0,
         };
-
         await addDoc(collection(db, "posts"), newPost);
-        
         setUploadModalOpen(false);
 
     } catch (error) {
@@ -360,7 +370,11 @@ const App: React.FC = () => {
       await setDoc(userDocRef, {
         id: user.uid,
         username: finalUsername,
-        avatarUrl: photoURL
+        avatarUrl: photoURL,
+        following: [],
+        followers: [],
+        followingCount: 0,
+        followersCount: 0,
       });
 
       setSignUpModalOpen(false);
@@ -377,11 +391,19 @@ const App: React.FC = () => {
       const user = result.user;
 
       const userDocRef = doc(db, "users", user.uid);
-      await setDoc(userDocRef, {
-        id: user.uid,
-        username: user.displayName || user.email?.split('@')[0],
-        avatarUrl: user.photoURL || ''
-      }, { merge: true });
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          id: user.uid,
+          username: user.displayName || user.email?.split('@')[0],
+          avatarUrl: user.photoURL || '',
+          following: [],
+          followers: [],
+          followingCount: 0,
+          followersCount: 0,
+        });
+      }
 
 
       setLoginModalOpen(false);
@@ -430,7 +452,6 @@ const App: React.FC = () => {
       const userDocRef = doc(db, 'users', currentUser.id);
       await updateDoc(userDocRef, { avatarUrl: newAvatarUrl });
 
-      setCurrentUser(prev => prev ? { ...prev, avatarUrl: newAvatarUrl } : null);
     } catch (error) {
       console.error("Error al actualizar el avatar:", error);
       alert("Ocurrió un error al actualizar tu foto de perfil.");
@@ -461,8 +482,6 @@ const App: React.FC = () => {
       
       const userDocRef = doc(db, 'users', currentUser.id);
       await updateDoc(userDocRef, { avatarUrl: defaultAvatarUrl });
-
-      setCurrentUser(prev => prev ? { ...prev, avatarUrl: defaultAvatarUrl } : null);
     } catch (error) {
       console.error("Error al eliminar el avatar:", error);
       alert("Ocurrió un error al eliminar tu foto de perfil.");
@@ -521,6 +540,80 @@ const App: React.FC = () => {
       }
     );
   };
+
+  const handleFollow = async (userIdToFollow: string) => {
+    if (!currentUser) {
+      setLoginModalOpen(true);
+      return;
+    }
+    const currentUserId = currentUser.id;
+    if (currentUserId === userIdToFollow) return;
+
+    const batch = writeBatch(db);
+    const currentUserRef = doc(db, 'users', currentUserId);
+    batch.update(currentUserRef, {
+      following: arrayUnion(userIdToFollow),
+      followingCount: increment(1)
+    });
+    const userToFollowRef = doc(db, 'users', userIdToFollow);
+    batch.update(userToFollowRef, {
+      followers: arrayUnion(currentUserId),
+      followersCount: increment(1)
+    });
+    await batch.commit();
+  };
+
+  const handleUnfollow = async (userIdToUnfollow: string) => {
+    if (!currentUser) return;
+    const currentUserId = currentUser.id;
+    if (currentUserId === userIdToUnfollow) return;
+
+    const batch = writeBatch(db);
+    const currentUserRef = doc(db, 'users', currentUserId);
+    batch.update(currentUserRef, {
+      following: arrayRemove(userIdToUnfollow),
+      followingCount: increment(-1)
+    });
+    const userToUnfollowRef = doc(db, 'users', userIdToUnfollow);
+    batch.update(userToUnfollowRef, {
+      followers: arrayRemove(currentUserId),
+      followersCount: increment(-1)
+    });
+    await batch.commit();
+  };
+
+  const handleNotificationsClick = async () => {
+    if (!currentUser) return;
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        setNotificationPermissionModalOpen(true);
+      } else if (Notification.permission === 'granted') {
+        alert("Aquí se mostrarían las notificaciones.");
+      } else if (Notification.permission === 'denied') {
+        alert("Has bloqueado las notificaciones. Para activarlas, ve a la configuración de tu navegador.");
+      }
+    } else {
+      alert("Este navegador no soporta notificaciones push.");
+    }
+  };
+
+  const handleRequestNotificationPermission = async () => {
+    setNotificationPermissionModalOpen(false);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        console.log('Notification permission granted.');
+        alert('¡Notificaciones activadas!');
+        // Here you would get the FCM token and save it to the user's document
+      } else {
+        console.log('User denied notification permission.');
+        alert('No has permitido las notificaciones.');
+      }
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+    }
+  };
+
   
   const displayedPosts = useMemo(() => {
     let filtered = searchResults ? posts.filter(p => searchResults.includes(p.id)) : posts;
@@ -600,6 +693,7 @@ const App: React.FC = () => {
         onSignUpClick={() => setSignUpModalOpen(true)}
         onLogoutClick={handleLogout}
         onFiestaFinderClick={() => setFiestaFinderOpen(true)}
+        onNotificationsClick={handleNotificationsClick}
       />
       <main className={`container mx-auto px-4 ${paddingTopClass} flex-grow`}>
         {view === 'feed' && (
@@ -670,6 +764,8 @@ const App: React.FC = () => {
             onOpenUploadModal={() => setUploadModalOpen(true)}
             onUpdateAvatar={handleUpdateAvatar}
             onRemoveAvatar={handleRemoveAvatar}
+            onFollow={handleFollow}
+            onUnfollow={handleUnfollow}
           />
         )}
       </main>
@@ -704,8 +800,21 @@ const App: React.FC = () => {
           recipientEmail="ifg1967@hotmail.com"
         />
       )}
+      
+      {isNotificationPermissionModalOpen && (
+        <NotificationPermissionModal
+          onClose={() => setNotificationPermissionModalOpen(false)}
+          onAllow={handleRequestNotificationPermission}
+        />
+      )}
 
-      <Footer onLegalLinkClick={handleOpenLegalModal} onContactClick={() => setContactModalOpen(true)} />
+      {isAboutModalOpen && <AboutModal content={aboutText} onClose={() => setAboutModalOpen(false)} />}
+
+      <Footer 
+        onLegalLinkClick={handleOpenLegalModal} 
+        onContactClick={() => setContactModalOpen(true)} 
+        onAboutClick={() => setAboutModalOpen(true)}
+      />
     </div>
   );
 };

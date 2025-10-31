@@ -22,7 +22,8 @@ const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
             <h2 className="text-3xl font-bold mb-6">Quiénes Somos</h2>
         </div>
         
-        <div className="overflow-y-auto pr-4 text-left max-w-none space-y-4 text-gray-300">
+        {/* Scrollable Content Area */}
+        <div className="overflow-y-auto pr-4 space-y-4 text-gray-300 text-left">
             <h4 className="text-lg font-semibold text-white">SaldeFiesta: La plataforma que da vida a tus tradiciones y eventos locales.</h4>
             <p>
               En un mundo digital saturado, SaldeFiesta emerge como la plataforma social y de descubrimiento diseñada específicamente para revalorizar nuestras raíces y celebraciones. Olvídate de buscar información fragmentada sobre las fiestas patronales, eventos culturales, conciertos y ferias de tu entorno. Nosotros centralizamos la agenda festiva, haciéndola accesible y viva.

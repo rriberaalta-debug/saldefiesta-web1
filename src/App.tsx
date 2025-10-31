@@ -23,7 +23,6 @@ import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
 import ContactModal from './components/ContactModal';
 import AboutModal from './components/AboutModal';
-import NotificationPermissionModal from './components/NotificationPermissionModal';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
 import { auth, db, storage } from './services/firebase';
@@ -75,7 +74,6 @@ const App: React.FC = () => {
   const [isFiestaFinderOpen, setFiestaFinderOpen] = useState(false);
   const [isContactModalOpen, setContactModalOpen] = useState(false);
   const [isAboutModalOpen, setAboutModalOpen] = useState(false);
-  const [isNotificationPermissionModalOpen, setNotificationPermissionModalOpen] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [legalModalContent, setLegalModalContent] = useState<LegalContentType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -581,39 +579,6 @@ const App: React.FC = () => {
     });
     await batch.commit();
   };
-
-  const handleNotificationsClick = async () => {
-    if (!currentUser) return;
-    if ('Notification' in window) {
-      if (Notification.permission === 'default') {
-        setNotificationPermissionModalOpen(true);
-      } else if (Notification.permission === 'granted') {
-        alert("Aquí se mostrarían las notificaciones.");
-      } else if (Notification.permission === 'denied') {
-        alert("Has bloqueado las notificaciones. Para activarlas, ve a la configuración de tu navegador.");
-      }
-    } else {
-      alert("Este navegador no soporta notificaciones push.");
-    }
-  };
-
-  const handleRequestNotificationPermission = async () => {
-    setNotificationPermissionModalOpen(false);
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        console.log('Notification permission granted.');
-        alert('¡Notificaciones activadas!');
-        // Here you would get the FCM token and save it to the user's document
-      } else {
-        console.log('User denied notification permission.');
-        alert('No has permitido las notificaciones.');
-      }
-    } catch (error) {
-      console.error('Error requesting notification permission:', error);
-    }
-  };
-
   
   const displayedPosts = useMemo(() => {
     let filtered = searchResults ? posts.filter(p => searchResults.includes(p.id)) : posts;
@@ -693,7 +658,6 @@ const App: React.FC = () => {
         onSignUpClick={() => setSignUpModalOpen(true)}
         onLogoutClick={handleLogout}
         onFiestaFinderClick={() => setFiestaFinderOpen(true)}
-        onNotificationsClick={handleNotificationsClick}
       />
       <main className={`container mx-auto px-4 ${paddingTopClass} flex-grow`}>
         {view === 'feed' && (
@@ -801,13 +765,6 @@ const App: React.FC = () => {
         />
       )}
       
-      {isNotificationPermissionModalOpen && (
-        <NotificationPermissionModal
-          onClose={() => setNotificationPermissionModalOpen(false)}
-          onAllow={handleRequestNotificationPermission}
-        />
-      )}
-
       {isAboutModalOpen && <AboutModal content={aboutText} onClose={() => setAboutModalOpen(false)} />}
 
       <Footer 

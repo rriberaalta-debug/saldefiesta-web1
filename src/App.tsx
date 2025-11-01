@@ -164,13 +164,20 @@ const App: React.FC = () => {
   // useEffect para cargar los productos de afiliados desde Firestore
   useEffect(() => {
     const q = query(collection(db, "affiliateProducts"), orderBy("order", "asc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const productsFromFirestore: AffiliateProduct[] = [];
-      querySnapshot.forEach((doc) => {
-        productsFromFirestore.push({ id: doc.id, ...doc.data() } as AffiliateProduct);
-      });
-      setAffiliateProducts(productsFromFirestore);
-    });
+    const unsubscribe = onSnapshot(q, 
+      (querySnapshot) => {
+        const productsFromFirestore: AffiliateProduct[] = [];
+        querySnapshot.forEach((doc) => {
+          productsFromFirestore.push({ id: doc.id, ...doc.data() } as AffiliateProduct);
+        });
+        setAffiliateProducts(productsFromFirestore);
+      },
+      (error) => {
+        console.error("Error al obtener productos de afiliados: ", error);
+        alert("Error al cargar los productos. Revisa las reglas de seguridad de Firestore o asegúrate de que la colección 'affiliateProducts' existe y tiene documentos.");
+        setAffiliateProducts([]); // Poner a un array vacío para detener el estado de carga
+      }
+    );
     return () => unsubscribe();
   }, []);
 

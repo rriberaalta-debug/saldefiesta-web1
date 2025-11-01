@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, User as UserIcon, Home, SlidersHorizontal, LogOut, Loader2, CalendarDays } from 'lucide-react';
+import { Search, User as UserIcon, Home, SlidersHorizontal, LogOut, Loader2, CalendarDays, ShoppingCart } from 'lucide-react';
 import { FilterOptions, User } from '../types';
 
 interface HeaderProps {
@@ -15,6 +15,7 @@ interface HeaderProps {
   onSignUpClick: () => void;
   onLogoutClick: () => void;
   onFiestaFinderClick: () => void;
+  onAffiliateClick: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -28,7 +29,8 @@ const Header: React.FC<HeaderProps> = ({
   onLoginClick,
   onSignUpClick,
   onLogoutClick,
-  onFiestaFinderClick
+  onFiestaFinderClick,
+  onAffiliateClick
 }) => {
   const [isFilterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
@@ -117,6 +119,9 @@ const Header: React.FC<HeaderProps> = ({
                     </div>
                     )}
                 </div>
+                 <button onClick={onAffiliateClick} className="text-white hover:text-festive-orange transition-colors hidden sm:block">
+                    <ShoppingCart size={28} />
+                </button>
                 <button onClick={onFiestaFinderClick} className="text-white hover:text-festive-orange transition-colors hidden sm:block">
                     <CalendarDays size={28} />
                 </button>

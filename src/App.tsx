@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Post, User, Comment as CommentType, FilterOptions, UserStory, SortBy, TopContributor, TrendingLocation, LegalContentType, GeolocationStatus, Credentials, FiestaEvent } from './types';
+import { Post, User, Comment as CommentType, FilterOptions, UserStory, SortBy, TopContributor, TrendingLocation, LegalContentType, GeolocationStatus, Credentials, FiestaEvent, AffiliateProduct } from './types';
 import { cityCoordinates } from './constants';
 import { legalTexts } from './legalTexts';
 import { aboutText } from './aboutText';
@@ -23,6 +23,7 @@ import GeolocationModal from './components/GeolocationModal';
 import FiestaFinder from './components/FiestaFinder';
 import ContactModal from './components/ContactModal';
 import AboutModal from './components/AboutModal';
+import AffiliateProductsModal from './components/AffiliateProductsModal';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
 import { auth, db, storage } from './services/firebase';
@@ -74,6 +75,7 @@ const App: React.FC = () => {
   const [isFiestaFinderOpen, setFiestaFinderOpen] = useState(false);
   const [isContactModalOpen, setContactModalOpen] = useState(false);
   const [isAboutModalOpen, setAboutModalOpen] = useState(false);
+  const [isAffiliateModalOpen, setAffiliateModalOpen] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [legalModalContent, setLegalModalContent] = useState<LegalContentType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,6 +97,8 @@ const App: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>(null);
   
+  const [affiliateProducts, setAffiliateProducts] = useState<AffiliateProduct[]>([]);
+
   const feedRef = useRef<HTMLDivElement>(null);
 
   // Listener para el estado de autenticación de Firebase
@@ -152,6 +156,19 @@ const App: React.FC = () => {
         usersFromFirestore.push({ id: doc.id, ...doc.data() } as User);
       });
       setUsers(usersFromFirestore);
+    });
+    return () => unsubscribe();
+  }, []);
+  
+  // useEffect para cargar los productos de afiliados desde Firestore
+  useEffect(() => {
+    const q = query(collection(db, "affiliateProducts"), orderBy("order", "asc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const productsFromFirestore: AffiliateProduct[] = [];
+      querySnapshot.forEach((doc) => {
+        productsFromFirestore.push({ id: doc.id, ...doc.data() } as AffiliateProduct);
+      });
+      setAffiliateProducts(productsFromFirestore);
     });
     return () => unsubscribe();
   }, []);
@@ -658,6 +675,7 @@ const App: React.FC = () => {
         onSignUpClick={() => setSignUpModalOpen(true)}
         onLogoutClick={handleLogout}
         onFiestaFinderClick={() => setFiestaFinderOpen(true)}
+        onAffiliateClick={() => setAffiliateModalOpen(true)}
       />
       <main className={`container mx-auto px-4 ${paddingTopClass} flex-grow`}>
         {view === 'feed' && (
@@ -766,6 +784,8 @@ const App: React.FC = () => {
       )}
       
       {isAboutModalOpen && <AboutModal content={aboutText} onClose={() => setAboutModalOpen(false)} />}
+      
+      {isAffiliateModalOpen && <AffiliateProductsModal products={affiliateProducts} onClose={() => setAffiliateModalOpen(false)} />}
 
       <Footer 
         onLegalLinkClick={handleOpenLegalModal} 

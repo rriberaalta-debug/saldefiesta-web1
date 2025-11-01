@@ -1,8 +1,11 @@
-
 export interface User {
   id: string;
   username: string;
   avatarUrl: string;
+  following?: string[];
+  followers?: string[];
+  followingCount?: number;
+  followersCount?: number;
 }
 
 export interface Post {
@@ -75,4 +78,13 @@ export interface Credentials {
     email: string;
     password: any;
     username?: string;
+}
+
+export interface AffiliateProduct {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  affiliateUrl: string;
+  order: number;
 }

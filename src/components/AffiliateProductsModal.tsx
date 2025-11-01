@@ -4,7 +4,7 @@ import { X, ShoppingCart, Info, Loader2 } from 'lucide-react';
 import { AffiliateProduct } from '../types';
 
 interface AffiliateProductsModalProps {
-  products: AffiliateProduct[];
+  products: AffiliateProduct[] | null;
   onClose: () => void;
 }
 
@@ -30,7 +30,7 @@ const ProductCard: React.FC<{ product: AffiliateProduct }> = ({ product }) => (
 
 
 const AffiliateProductsModal: React.FC<AffiliateProductsModalProps> = ({ products, onClose }) => {
-  const isLoading = products === undefined;
+  const isLoading = products === null;
   const hasProducts = products && products.length > 0;
 
   const renderContent = () => {

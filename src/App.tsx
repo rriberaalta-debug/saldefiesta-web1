@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Post, User, Comment as CommentType, FilterOptions, UserStory, SortBy, TopContributor, TrendingLocation, LegalContentType, GeolocationStatus, Credentials, FiestaEvent, AffiliateProduct } from './types';
 import { cityCoordinates } from './constants';
@@ -97,7 +98,7 @@ const App: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>(null);
   
-  const [affiliateProducts, setAffiliateProducts] = useState<AffiliateProduct[]>([]);
+  const [affiliateProducts, setAffiliateProducts] = useState<AffiliateProduct[] | null>(null);
 
   const feedRef = useRef<HTMLDivElement>(null);
 

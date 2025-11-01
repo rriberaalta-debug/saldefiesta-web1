@@ -1,10 +1,11 @@
 // src/components/AffiliateProductsModal.tsx
 import React from 'react';
-import { X, ShoppingCart, Info, Loader2 } from 'lucide-react';
+import { X, ShoppingCart, Info, Loader2, AlertTriangle } from 'lucide-react';
 import { AffiliateProduct } from '../types';
 
 interface AffiliateProductsModalProps {
   products: AffiliateProduct[] | null;
+  error: string | null;
   onClose: () => void;
 }
 
@@ -29,11 +30,55 @@ const ProductCard: React.FC<{ product: AffiliateProduct }> = ({ product }) => (
 );
 
 
-const AffiliateProductsModal: React.FC<AffiliateProductsModalProps> = ({ products, onClose }) => {
-  const isLoading = products === null;
+const AffiliateProductsModal: React.FC<AffiliateProductsModalProps> = ({ products, error, onClose }) => {
+  const isLoading = products === null && !error;
   const hasProducts = products && products.length > 0;
 
   const renderContent = () => {
+    if (error) {
+      // Intenta extraer la URL si es un error de índice de Firebase
+      const urlMatch = error.match(/(https?:\/\/[^\s]+)/);
+      const indexUrl = urlMatch ? urlMatch[0] : null;
+
+      return (
+        <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg text-left">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-red-400 flex-shrink-0 mt-1" size={24} />
+            <div>
+              <h3 className="font-bold text-lg">Error al Cargar los Productos</h3>
+              <p className="text-sm mt-2 mb-4">
+                No se pudo conectar con la base de datos. Las causas más comunes son:
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 mb-4">
+                <li><strong className="font-semibold">Falta un índice en Firebase:</strong> Si el error de abajo lo menciona, necesitas crear un "índice".</li>
+                <li><strong className="font-semibold">Reglas de Seguridad:</strong> Las reglas de Firestore podrían estar bloqueando el acceso.</li>
+              </ul>
+              
+              {indexUrl && (
+                <div className="mb-4">
+                  <p className="text-sm font-bold mb-2">ACCIÓN REQUERIDA (Falta Índice):</p>
+                  <p className="text-xs mb-2">Haz clic en el siguiente enlace para crear el índice que Firebase necesita. Se abrirá en una nueva pestaña. Una vez creado (tarda 1-2 minutos), refresca esta página.</p>
+                  <a 
+                    href={indexUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-yellow-500 text-black font-bold py-2 px-4 rounded-md hover:bg-yellow-600 transition-colors text-sm break-all"
+                  >
+                    Crear Índice en Firebase
+                  </a>
+                </div>
+              )}
+
+              <div className="bg-black/50 p-2 rounded-md mt-4">
+                <p className="text-xs font-semibold text-gray-400">Mensaje de error técnico:</p>
+                <code className="text-xs break-words">{error}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (isLoading) {
        return (
         <div className="flex items-center justify-center h-48 flex-col text-center">

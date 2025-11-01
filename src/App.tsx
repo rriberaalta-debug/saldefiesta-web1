@@ -99,6 +99,7 @@ const App: React.FC = () => {
   const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>(null);
   
   const [affiliateProducts, setAffiliateProducts] = useState<AffiliateProduct[] | null>(null);
+  const [affiliateProductsError, setAffiliateProductsError] = useState<string | null>(null);
 
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -166,6 +167,7 @@ const App: React.FC = () => {
     const q = query(collection(db, "affiliateProducts"), orderBy("order", "asc"));
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
+        setAffiliateProductsError(null); // Limpia errores anteriores si la carga es exitosa
         const productsFromFirestore: AffiliateProduct[] = [];
         querySnapshot.forEach((doc) => {
           productsFromFirestore.push({ id: doc.id, ...doc.data() } as AffiliateProduct);
@@ -174,7 +176,8 @@ const App: React.FC = () => {
       },
       (error) => {
         console.error("Error al obtener productos de afiliados: ", error);
-        alert("Error al cargar los productos. Revisa las reglas de seguridad de Firestore o asegúrate de que la colección 'affiliateProducts' existe y tiene documentos.");
+        // Almacena el mensaje de error específico para mostrarlo en la interfaz de usuario
+        setAffiliateProductsError(error.message);
         setAffiliateProducts([]); // Poner a un array vacío para detener el estado de carga
       }
     );
@@ -793,7 +796,7 @@ const App: React.FC = () => {
       
       {isAboutModalOpen && <AboutModal content={aboutText} onClose={() => setAboutModalOpen(false)} />}
       
-      {isAffiliateModalOpen && <AffiliateProductsModal products={affiliateProducts} onClose={() => setAffiliateModalOpen(false)} />}
+      {isAffiliateModalOpen && <AffiliateProductsModal products={affiliateProducts} error={affiliateProductsError} onClose={() => setAffiliateModalOpen(false)} />}
 
       <Footer 
         onLegalLinkClick={handleOpenLegalModal} 

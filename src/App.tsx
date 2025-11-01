@@ -164,7 +164,7 @@ const App: React.FC = () => {
   
   // useEffect para cargar los productos de afiliados desde Firestore
   useEffect(() => {
-    const q = query(collection(db, "affiliateProducts"), orderBy("order", "asc"));
+    const q = query(collection(db, "affiliateProducts"));
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
         setAffiliateProductsError(null); // Limpia errores anteriores si la carga es exitosa

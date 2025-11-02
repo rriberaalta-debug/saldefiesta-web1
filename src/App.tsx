@@ -23,7 +23,6 @@ import FiestaFinder from './components/FiestaFinder';
 import ContactModal from './components/ContactModal';
 import AboutModal from './components/AboutModal';
 import AffiliateProductsModal from './components/AffiliateProductsModal';
-import VoiceChatModal from './components/VoiceChatModal';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
 import { auth, db, storage } from './services/firebase';
@@ -76,7 +75,6 @@ const App: React.FC = () => {
   const [isContactModalOpen, setContactModalOpen] = useState(false);
   const [isAboutModalOpen, setAboutModalOpen] = useState(false);
   const [isAffiliateModalOpen, setAffiliateModalOpen] = useState(false);
-  const [isVoiceChatOpen, setVoiceChatOpen] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [legalModalContent, setLegalModalContent] = useState<LegalContentType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,8 +96,11 @@ const App: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>(null);
   
-  const [affiliateProducts, setAffiliateProducts] = useState<AffiliateProduct[] | null>(null);
-  const [affiliateProductsError, setAffiliateProductsError] = useState<string | null>(null);
+  const [affiliateProductsState, setAffiliateProductsState] = useState<{
+    status: 'loading' | 'success' | 'error';
+    data: AffiliateProduct[];
+    error: string | null;
+  }>({ status: 'loading', data: [], error: null });
 
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -164,34 +165,31 @@ const App: React.FC = () => {
   
   // useEffect para cargar los productos de afiliados desde Firestore
   useEffect(() => {
+    setAffiliateProductsState({ status: 'loading', data: [], error: null });
     const q = query(collection(db, "affiliateProducts"));
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
         if (querySnapshot.empty) {
-          // La consulta fue exitosa, pero no devolvió documentos.
-          setAffiliateProducts([]); // Detiene el estado de carga
-          setAffiliateProductsError(
-            "Conexión exitosa, pero 0 productos encontrados.\n\n" +
-            "Posibles causas:\n" +
-            "1. La colección 'affiliateProducts' está vacía en Firebase.\n" +
-            "2. El nombre de la colección en Firebase no es exactamente 'affiliateProducts' (¡mayúsculas y minúsculas importan!).\n" +
-            "3. Las reglas de seguridad de Firestore podrían estar bloqueando el acceso."
-          );
+          setAffiliateProductsState({
+            status: 'error',
+            data: [],
+            error: "Conexión exitosa, pero 0 productos encontrados.\n\n" +
+                   "Posibles causas:\n" +
+                   "1. La colección 'affiliateProducts' está vacía en Firebase.\n" +
+                   "2. El nombre de la colección no es exactamente 'affiliateProducts'.\n" +
+                   "3. Las reglas de seguridad de Firestore bloquean el acceso (revisa la consola F12)."
+          });
         } else {
-          // Se encontraron documentos.
-          setAffiliateProductsError(null);
           const productsFromFirestore: AffiliateProduct[] = [];
           querySnapshot.forEach((doc) => {
             productsFromFirestore.push({ id: doc.id, ...doc.data() } as AffiliateProduct);
           });
-          setAffiliateProducts(productsFromFirestore);
+          setAffiliateProductsState({ status: 'success', data: productsFromFirestore, error: null });
         }
       },
       (error) => {
         console.error("Error al obtener productos de afiliados: ", error);
-        // Almacena el mensaje de error específico para mostrarlo en la interfaz de usuario
-        setAffiliateProductsError(error.message);
-        setAffiliateProducts([]); // Poner a un array vacío para detener el estado de carga
+        setAffiliateProductsState({ status: 'error', data: [], error: error.message });
       }
     );
     return () => unsubscribe();
@@ -700,7 +698,6 @@ const App: React.FC = () => {
         onLogoutClick={handleLogout}
         onFiestaFinderClick={() => setFiestaFinderOpen(true)}
         onAffiliateClick={() => setAffiliateModalOpen(true)}
-        onVoiceChatClick={() => setVoiceChatOpen(true)}
       />
       <main className={`container mx-auto px-4 ${paddingTopClass} flex-grow`}>
         {view === 'feed' && (
@@ -810,9 +807,7 @@ const App: React.FC = () => {
       
       {isAboutModalOpen && <AboutModal content={aboutText} onClose={() => setAboutModalOpen(false)} />}
       
-      {isAffiliateModalOpen && <AffiliateProductsModal products={affiliateProducts} error={affiliateProductsError} onClose={() => setAffiliateModalOpen(false)} />}
-
-      {isVoiceChatOpen && <VoiceChatModal onClose={() => setVoiceChatOpen(false)} />}
+      {isAffiliateModalOpen && <AffiliateProductsModal state={affiliateProductsState} onClose={() => setAffiliateModalOpen(false)} />}
 
       <Footer 
         onLegalLinkClick={handleOpenLegalModal} 

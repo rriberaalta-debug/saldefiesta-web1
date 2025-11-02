@@ -4,8 +4,11 @@ import { X, ShoppingCart, Info, Loader2, AlertTriangle } from 'lucide-react';
 import { AffiliateProduct } from '../types';
 
 interface AffiliateProductsModalProps {
-  products: AffiliateProduct[] | null;
-  error: string | null;
+  state: {
+    status: 'loading' | 'success' | 'error';
+    data: AffiliateProduct[];
+    error: string | null;
+  };
   onClose: () => void;
 }
 
@@ -30,14 +33,20 @@ const ProductCard: React.FC<{ product: AffiliateProduct }> = ({ product }) => (
 );
 
 
-const AffiliateProductsModal: React.FC<AffiliateProductsModalProps> = ({ products, error, onClose }) => {
-  const isLoading = products === null && !error;
-  const hasProducts = products && products.length > 0;
-
+const AffiliateProductsModal: React.FC<AffiliateProductsModalProps> = ({ state, onClose }) => {
+  
   const renderContent = () => {
-    if (error) {
-      // Intenta extraer la URL si es un error de índice de Firebase
-      const urlMatch = error.match(/(https?:\/\/[^\s]+)/);
+    if (state.status === 'loading') {
+       return (
+        <div className="flex items-center justify-center h-48 flex-col text-center">
+          <Loader2 className="animate-spin text-festive-orange" size={48} />
+          <p className="mt-4 text-lg">Cargando productos...</p>
+        </div>
+      );
+    }
+
+    if (state.status === 'error') {
+      const urlMatch = state.error?.match(/(https?:\/\/[^\s]+)/);
       const indexUrl = urlMatch ? urlMatch[0] : null;
 
       return (
@@ -46,16 +55,12 @@ const AffiliateProductsModal: React.FC<AffiliateProductsModalProps> = ({ product
             <AlertTriangle className="text-red-400 flex-shrink-0 mt-1" size={24} />
             <div>
               <h3 className="font-bold text-lg">Error al Cargar los Productos</h3>
-              <p className="text-sm mt-2 mb-4">
-                No se pudo conectar con la base de datos. Las causas más comunes son:
-              </p>
-              <ul className="list-disc list-inside text-sm space-y-1 mb-4">
-                <li><strong className="font-semibold">Falta un índice en Firebase:</strong> Si el error de abajo lo menciona, necesitas crear un "índice".</li>
-                <li><strong className="font-semibold">Reglas de Seguridad:</strong> Las reglas de Firestore podrían estar bloqueando el acceso.</li>
-              </ul>
-              
+              <div className="bg-black/50 p-2 rounded-md mt-4">
+                <p className="text-xs font-semibold text-gray-400">Mensaje de error:</p>
+                <code className="text-xs whitespace-pre-wrap">{state.error}</code>
+              </div>
               {indexUrl && (
-                <div className="mb-4">
+                <div className="mt-4">
                   <p className="text-sm font-bold mb-2">ACCIÓN REQUERIDA (Falta Índice):</p>
                   <p className="text-xs mb-2">Haz clic en el siguiente enlace para crear el índice que Firebase necesita. Se abrirá en una nueva pestaña. Una vez creado (tarda 1-2 minutos), refresca esta página.</p>
                   <a 
@@ -68,36 +73,25 @@ const AffiliateProductsModal: React.FC<AffiliateProductsModalProps> = ({ product
                   </a>
                 </div>
               )}
-
-              <div className="bg-black/50 p-2 rounded-md mt-4">
-                <p className="text-xs font-semibold text-gray-400">Mensaje de error técnico:</p>
-                <code className="text-xs break-words">{error}</code>
-              </div>
             </div>
           </div>
         </div>
       );
     }
-
-    if (isLoading) {
-       return (
-        <div className="flex items-center justify-center h-48 flex-col text-center">
-          <Loader2 className="animate-spin text-festive-orange" size={48} />
-          <p className="mt-4 text-lg">Cargando productos...</p>
-        </div>
-      );
-    }
     
-    if (hasProducts) {
+    if (state.status === 'success' && state.data.length > 0) {
       return (
         <div className="space-y-4">
-          {products.map(product => (
+          {state.data.map(product => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
       );
     }
     
+    // This case will be hit if status is 'success' but data is empty,
+    // which shouldn't happen with the new logic in App.tsx that sets an error instead.
+    // It's kept as a fallback.
     return (
       <div className="flex flex-col items-center justify-center h-48 text-center">
         <Info className="text-sky-400 mb-4" size={48} />

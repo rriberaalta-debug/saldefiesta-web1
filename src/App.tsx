@@ -41,8 +41,6 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 
 const ADMIN_UID = '6W4Ikpge9WXQJ3elbuDiTW7Cxht1';
 
-type View = 'feed' | 'post' | 'profile';
-
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371; // Radius of the earth in km
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -58,13 +56,11 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 
 
 const App: React.FC = () => {
-  const [view, setView] = useState<View>('feed');
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [comments, setComments] = useState<Record<string, CommentType[]>>({});
   const [stories, setStories] = useState<UserStory[]>([]);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -104,12 +100,25 @@ const App: React.FC = () => {
 
   const feedRef = useRef<HTMLDivElement>(null);
 
+  // Client-side router
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
+  const navigate = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
   // Listener para el estado de autenticación de Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         const userDocRef = doc(db, "users", firebaseUser.uid);
-        // Escuchar cambios en el documento del usuario en tiempo real
         const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
           if (userDocSnap.exists()) {
             setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
@@ -127,7 +136,7 @@ const App: React.FC = () => {
           }
         });
          setAuthLoading(false);
-        return () => unsubscribeUser(); // Cleanup user snapshot listener
+        return () => unsubscribeUser();
       } else {
         setCurrentUser(null);
         setAuthLoading(false);
@@ -195,13 +204,23 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // Derivamos el ID del post de la URL para cargar los comentarios
+  const postIdFromUrl = useMemo(() => {
+    const pathParts = currentPath.split('/').filter(Boolean);
+    if (pathParts[0] === 'post' && pathParts[1]) {
+      return pathParts[1];
+    }
+    return null;
+  }, [currentPath]);
+
+
   // useEffect para cargar los comentarios del post seleccionado
   useEffect(() => {
-    if (!selectedPostId) {
+    if (!postIdFromUrl) {
       return;
     }
 
-    const q = query(collection(db, "posts", selectedPostId, "comments"), orderBy("timestamp", "asc"));
+    const q = query(collection(db, "posts", postIdFromUrl, "comments"), orderBy("timestamp", "asc"));
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const commentsFromFirestore: CommentType[] = [];
@@ -209,7 +228,7 @@ const App: React.FC = () => {
         const data = doc.data();
         commentsFromFirestore.push({ 
           id: doc.id,
-          postId: selectedPostId,
+          postId: postIdFromUrl,
           userId: data.userId,
           text: data.text,
           timestamp: data.timestamp?.toDate().toISOString() || new Date().toISOString(),
@@ -218,12 +237,12 @@ const App: React.FC = () => {
       
       setComments(prev => ({
         ...prev,
-        [selectedPostId]: commentsFromFirestore
+        [postIdFromUrl]: commentsFromFirestore
       }));
     });
 
     return () => unsubscribe();
-  }, [selectedPostId]);
+  }, [postIdFromUrl]);
 
 
   useEffect(() => {
@@ -241,20 +260,16 @@ const App: React.FC = () => {
   }, [debouncedSearchQuery, posts, users]);
 
   const handlePostSelect = (postId: string) => {
-    setSelectedPostId(postId);
-    setView('post');
+    navigate(`/post/${postId}`);
   };
 
   const handleUserSelect = (userId: string) => {
     if (!userId) return;
-    setSelectedUserId(userId);
-    setView('profile');
+    navigate(`/profile/${userId}`);
   };
 
   const handleCloseDetail = () => {
-    setSelectedPostId(null);
-    setSelectedUserId(null);
-    setView('feed');
+    navigate('/');
   };
 
   const handleLike = async (postId: string) => {
@@ -642,7 +657,6 @@ const App: React.FC = () => {
       });
     }
     
-    // Default sort is 'recent'
     return [...displayedPosts].sort((a, b) => {
         const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
         const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
@@ -674,34 +688,69 @@ const App: React.FC = () => {
       .map(([city, postCount]) => ({ city, postCount }));
   }, [posts]);
 
-
-  const selectedPost = posts.find(p => p.id === selectedPostId);
-  const selectedUser = users.find(u => u.id === selectedUserId);
   const paddingTopClass = 'pt-24 sm:pt-28';
   
   if (authLoading) {
     return <div className="min-h-screen bg-gradient-to-br from-sky-blue to-vibrant-purple flex items-center justify-center text-white font-bold text-xl">Cargando SaldeFiesta...</div>;
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-blue to-vibrant-purple text-white font-sans flex flex-col">
-      <Header 
-        currentUser={currentUser}
-        onSearch={setSearchQuery}
-        isSearching={isSearching}
-        onProfileClick={() => currentUser && handleUserSelect(currentUser.id)} 
-        onHomeClick={handleCloseDetail}
-        onApplyFilters={() => {}}
-        activeFilterCount={0}
-        onLoginClick={() => setLoginModalOpen(true)}
-        onSignUpClick={() => setSignUpModalOpen(true)}
-        onLogoutClick={handleLogout}
-        onFiestaFinderClick={() => setFiestaFinderOpen(true)}
-        onAffiliateClick={() => setAffiliateModalOpen(true)}
-      />
-      <main className={`container mx-auto px-4 ${paddingTopClass} flex-grow`}>
-        {view === 'feed' && (
-          <>
+  const renderContent = () => {
+    const pathParts = currentPath.split('/').filter(Boolean);
+    const viewType = pathParts[0] || 'feed';
+    const viewId = pathParts[1] || null;
+
+    if (viewType === 'post' && viewId) {
+      const selectedPost = posts.find(p => p.id === viewId);
+      if (selectedPost) {
+        const postUser = users.find(u => u.id === selectedPost.userId);
+        if (postUser) {
+          return (
+            <PostDetail
+              post={selectedPost}
+              user={postUser}
+              comments={(comments[selectedPost.id] || []).filter(c => !blockedUsers.has(c.userId))}
+              users={users}
+              onClose={handleCloseDetail}
+              onLike={handleLike}
+              onAddComment={handleAddComment}
+              onUserSelect={handleUserSelect}
+              currentUser={currentUser}
+              onBlockUser={handleBlockUser}
+              onDeletePost={handleDeletePost}
+              isOwner={currentUser?.id === selectedPost.userId}
+              isAdmin={currentUser?.id === ADMIN_UID}
+            />
+          );
+        }
+      }
+    }
+
+    if (viewType === 'profile' && viewId) {
+        const selectedUser = users.find(u => u.id === viewId);
+        if(selectedUser) {
+            return (
+                <Profile 
+                    user={selectedUser} 
+                    posts={posts.filter(p => p.userId === selectedUser.id)} 
+                    onPostSelect={handlePostSelect}
+                    onBack={handleCloseDetail}
+                    currentUser={currentUser}
+                    blockedUsers={blockedUsers}
+                    onBlockUser={handleBlockUser}
+                    onUnblockUser={handleUnblockUser}
+                    onOpenUploadModal={() => setUploadModalOpen(true)}
+                    onUpdateAvatar={handleUpdateAvatar}
+                    onRemoveAvatar={handleRemoveAvatar}
+                    onFollow={handleFollow}
+                    onUnfollow={handleUnfollow}
+                />
+            );
+        }
+    }
+
+    // Default to feed
+    return (
+        <>
             {!currentUser && (
                 <>
                     <HeroSection onSignUpClick={() => setSignUpModalOpen(true)} onScrollToFeed={() => {}} />
@@ -736,42 +785,28 @@ const App: React.FC = () => {
                 />
               </aside>
             </div>
-          </>
-        )}
-        {view === 'post' && selectedPost && (
-          <PostDetail
-            post={selectedPost}
-            user={users.find(u => u.id === selectedPost.userId)!}
-            comments={(comments[selectedPost.id] || []).filter(c => !blockedUsers.has(c.userId))}
-            users={users}
-            onClose={handleCloseDetail}
-            onLike={handleLike}
-            onAddComment={handleAddComment}
-            onUserSelect={handleUserSelect}
-            currentUser={currentUser}
-            onBlockUser={handleBlockUser}
-            onDeletePost={handleDeletePost}
-            isOwner={currentUser?.id === selectedPost.userId}
-            isAdmin={currentUser?.id === ADMIN_UID}
-          />
-        )}
-        {view === 'profile' && selectedUser && (
-          <Profile 
-            user={selectedUser} 
-            posts={posts.filter(p => p.userId === selectedUser.id)} 
-            onPostSelect={handlePostSelect}
-            onBack={handleCloseDetail}
-            currentUser={currentUser}
-            blockedUsers={blockedUsers}
-            onBlockUser={handleBlockUser}
-            onUnblockUser={handleUnblockUser}
-            onOpenUploadModal={() => setUploadModalOpen(true)}
-            onUpdateAvatar={handleUpdateAvatar}
-            onRemoveAvatar={handleRemoveAvatar}
-            onFollow={handleFollow}
-            onUnfollow={handleUnfollow}
-          />
-        )}
+        </>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-sky-blue to-vibrant-purple text-white font-sans flex flex-col">
+      <Header 
+        currentUser={currentUser}
+        onSearch={setSearchQuery}
+        isSearching={isSearching}
+        onProfileClick={() => currentUser && handleUserSelect(currentUser.id)} 
+        onHomeClick={handleCloseDetail}
+        onApplyFilters={() => {}}
+        activeFilterCount={0}
+        onLoginClick={() => setLoginModalOpen(true)}
+        onSignUpClick={() => setSignUpModalOpen(true)}
+        onLogoutClick={handleLogout}
+        onFiestaFinderClick={() => setFiestaFinderOpen(true)}
+        onAffiliateClick={() => setAffiliateModalOpen(true)}
+      />
+      <main className={`container mx-auto px-4 ${paddingTopClass} flex-grow`}>
+        {renderContent()}
       </main>
       
       {isFiestaFinderOpen && <FiestaFinder onClose={() => setFiestaFinderOpen(false)} />}

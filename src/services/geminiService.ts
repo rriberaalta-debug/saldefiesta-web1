@@ -1,7 +1,7 @@
 // FIX: The reference to vite/client is removed as it was causing an error and environment variables are now accessed via process.env.
 import { GoogleGenAI, Type } from "@google/genai";
 import { Post, User, FiestaEvent } from "../types";
-import { fiestas as localFiestas } from "../constants";
+import * as constants from "../constants";
 
 // FIX: Use process.env.API_KEY as per coding guidelines and initialize the AI client directly.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -46,7 +46,7 @@ export const generateDescription = async (title: string, city: string): Promise<
 export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> => {
   // FIX: Removed apiKey check, assuming process.env.API_KEY is available as per coding guidelines.
   try {
-    const fiestasListString = JSON.stringify(localFiestas);
+    const fiestasListString = JSON.stringify(constants.fiestas);
 
     const prompt = `
       Eres un experto de clase mundial en fiestas patronales y eventos socioculturales de España.
@@ -83,8 +83,8 @@ export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> =
       },
     });
 
-    const fiestas = JSON.parse(response.text);
-    return Array.isArray(fiestas) ? fiestas : [];
+    const foundFiestas = JSON.parse(response.text);
+    return Array.isArray(foundFiestas) ? foundFiestas : [];
 
   } catch (error) {
     console.error("Error calling findFiestasWithAI:", error);

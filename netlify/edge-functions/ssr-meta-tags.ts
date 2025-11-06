@@ -21,37 +21,11 @@ const initializeFirebaseAdmin = () => {
   }
 };
 
-const generateMetaAndSchema = (post: admin.firestore.DocumentData, url: string, user: admin.firestore.DocumentData | null) => {
+const generateMetaTags = (post: admin.firestore.DocumentData, url: string) => {
   const title = post.title ? post.title.replace(/"/g, '&quot;') : "Publicación en SaldeFiesta";
-  const description = post.description ? post.description.replace(/"/g, '&quot;') : "Descubre esta publicación en SaldeFiesta.";
-  const postDate = post.timestamp?.toDate?.().toISOString() || new Date().toISOString();
-
-  // Schema.org JSON-LD for structured data
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "SocialMediaPosting",
-    "headline": post.title,
-    "description": post.description,
-    "image": post.mediaUrl,
-    "datePublished": postDate,
-    "author": {
-      "@type": "Person",
-      "name": user?.username || "Usuario de SaldeFiesta",
-      "url": `https://saldefiesta.es/profile/${post.userId}`
-    },
-    "publisher": {
-      "@type": "Organization",
-      "name": "SaldeFiesta",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://saldefiesta.es/apple-touch-icon.png"
-      }
-    }
-  };
-
-  const dynamicContent = `
-    <title>${title} - SaldeFiesta</title>
-    <meta name="description" content="${description}" />
+  const description = post.description ? post.description.substring(0, 150).replace(/"/g, '&quot;') : "Descubre esta publicación en SaldeFiesta.";
+  
+  return `
     <meta property="og:title" content="${title}" />
     <meta property="og:description" content="${description}" />
     <meta property="og:image" content="${post.mediaUrl}" />
@@ -61,9 +35,7 @@ const generateMetaAndSchema = (post: admin.firestore.DocumentData, url: string, 
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
     <meta name="twitter:image" content="${post.mediaUrl}" />
-    <script type="application/ld+json">${JSON.stringify(schema)}</script>
   `;
-  return dynamicContent;
 };
 
 export default async (request: Request, context: Context) => {
@@ -71,7 +43,8 @@ export default async (request: Request, context: Context) => {
   const url = new URL(request.url);
   const userAgent = request.headers.get("User-Agent") || "";
   
-  const isBot = /googlebot|bingbot|yahoo|duckduckgo|facebookexternalhit|Twitterbot|WhatsApp|Pinterest|LinkedInBot|Discordbot/i.test(userAgent);
+  // Revertido a la lista original de bots de redes sociales
+  const isBot = /facebookexternalhit|Twitterbot|WhatsApp|Pinterest|LinkedInBot|Discordbot/i.test(userAgent);
 
   const postPathRegex = /^\/post\/([a-zA-Z0-9]+)\/?$/;
   const match = url.pathname.match(postPathRegex);
@@ -103,19 +76,14 @@ export default async (request: Request, context: Context) => {
     if (!post) {
       return response;
     }
-    
-    const userDoc = await db.collection("users").doc(post.userId).get();
-    const user = userDoc.exists ? userDoc.data() : null;
 
     const html = await response.text();
-    const dynamicContent = generateMetaAndSchema(post, request.url, user);
+    const dynamicTags = generateMetaTags(post, request.url);
     
-    const newHtml = html
-      .replace(/<title>.*?<\/title>/, "") // Remove existing title tag to avoid duplicates
-      .replace(
-        "<!-- DYNAMIC_META_TAGS_PLACEHOLDER -->",
-        dynamicContent
-      );
+    const newHtml = html.replace(
+      "<!-- DYNAMIC_META_TAGS_PLACEHOLDER -->",
+      dynamicTags
+    );
 
     return new Response(newHtml, {
       status: 200,

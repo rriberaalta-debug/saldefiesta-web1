@@ -1,6 +1,6 @@
 {
   "name": "SaldeFiesta - Momentos de Fiestas Patronales",
-  "description": "SaldeFiesta es la red social para compartir y descubrir fiestas patronales, eventos y tradiciones de España. Sube tus fotos y vídeos, conecta con otros fiesteros y revive los mejores momentos.",
+  "description": "Una plataforma social para compartir y revivir tus experiencias de las fiestas patronales en España.",
   "requestFramePermissions": [
     "geolocation"
   ]

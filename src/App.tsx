@@ -275,30 +275,6 @@ const App: React.FC = () => {
     }
   }, [debouncedSearchQuery, posts, users]);
 
-  // SEO: Actualiza el título de la página en el cliente
-  useEffect(() => {
-    const pathParts = currentPath.split('/').filter(Boolean);
-    const viewType = pathParts[0] || 'feed';
-    const viewId = pathParts[1] || null;
-
-    let title = "SaldeFiesta - Fiestas Patronales y Eventos"; // Default title
-
-    if (viewType === 'post' && viewId) {
-        const post = posts.find(p => p.id === viewId);
-        if (post) {
-            title = `${post.title} - SaldeFiesta`;
-        }
-    } else if (viewType === 'profile' && viewId) {
-        const user = users.find(u => u.id === viewId);
-        if (user) {
-            title = `Perfil de ${user.username} - SaldeFiesta`;
-        }
-    }
-    
-    document.title = title;
-
-  }, [currentPath, posts, users]);
-
   const handlePostSelect = (postId: string) => {
     navigate(`/post/${postId}`);
   };

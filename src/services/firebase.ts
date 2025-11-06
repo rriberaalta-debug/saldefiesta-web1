@@ -1,10 +1,7 @@
-
-
-// FIX: Use Firebase v8 namespaced imports
-import firebase from "firebase/compat/app";
-import "firebase/compat/auth";
-import "firebase/compat/firestore";
-import "firebase/compat/storage";
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Lee las variables de entorno de forma segura, como configuraste en Netlify.
 const firebaseConfig = {
@@ -23,18 +20,9 @@ if (!firebaseConfig.apiKey) {
 }
 
 // Inicializa Firebase
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+const app = initializeApp(firebaseConfig);
 
 // Exporta los servicios que usarás
-export const auth = firebase.auth();
-export const db = firebase.firestore();
-export const storage = firebase.storage();
-
-// Exporta métodos de FieldValue y otros para compatibilidad con v8
-export const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
-export const increment = firebase.firestore.FieldValue.increment;
-export const arrayUnion = firebase.firestore.FieldValue.arrayUnion;
-export const arrayRemove = firebase.firestore.FieldValue.arrayRemove;
-export const GoogleAuthProvider = firebase.auth.GoogleAuthProvider;
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);

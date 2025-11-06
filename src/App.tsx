@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Post, User, Comment as CommentType, FilterOptions, UserStory, SortBy, TopContributor, TrendingLocation, LegalContentType, GeolocationStatus, Credentials, FiestaEvent, AffiliateProduct } from './types';
 import { cityCoordinates } from './constants';
@@ -27,11 +25,34 @@ import AboutModal from './components/AboutModal';
 import AffiliateProductsModal from './components/AffiliateProductsModal';
 import { generateDescription, searchPostsWithAI, findFiestasWithAI } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
-import { auth, db, storage, serverTimestamp, increment, arrayUnion, arrayRemove, GoogleAuthProvider } from './services/firebase';
-// FIX: Use firebase compat import for v8 types.
-import type firebase from 'firebase/compat/app';
-
-type FirebaseUser = firebase.User;
+import { auth, db, storage } from './services/firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  User as FirebaseUser,
+} from 'firebase/auth';
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  doc, 
+  getDoc,
+  setDoc, 
+  addDoc, 
+  updateDoc,
+  deleteDoc,
+  serverTimestamp, 
+  increment, 
+  arrayUnion, 
+  arrayRemove 
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const ADMIN_UID = '6W4Ikpge9WXQJ3elbuDiTW7Cxht1';
 
@@ -110,11 +131,11 @@ const App: React.FC = () => {
 
   // Listener para el estado de autenticación de Firebase
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        const userDocRef = db.collection("users").doc(firebaseUser.uid);
-        const unsubscribeUser = userDocRef.onSnapshot((userDocSnap) => {
-          if (userDocSnap.exists) {
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
+          if (userDocSnap.exists()) {
             setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
           } else {
              const newUser = {
@@ -126,7 +147,7 @@ const App: React.FC = () => {
                 followingCount: 0,
                 followersCount: 0,
             };
-            userDocRef.set(newUser).then(() => setCurrentUser(newUser as User));
+            setDoc(userDocRef, newUser).then(() => setCurrentUser(newUser as User));
           }
         });
          setAuthLoading(false);
@@ -142,8 +163,8 @@ const App: React.FC = () => {
   
     // useEffect para cargar los posts desde Firestore
   useEffect(() => {
-    const q = db.collection("posts").orderBy("timestamp", "desc");
-    const unsubscribe = q.onSnapshot((querySnapshot) => {
+    const q = query(collection(db, "posts"), orderBy("timestamp", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const postsFromFirestore: Post[] = [];
       querySnapshot.forEach((doc) => {
         postsFromFirestore.push({ id: doc.id, ...doc.data() } as Post);
@@ -155,8 +176,8 @@ const App: React.FC = () => {
 
   // useEffect para cargar los usuarios desde Firestore
   useEffect(() => {
-    const q = db.collection("users");
-    const unsubscribe = q.onSnapshot((querySnapshot) => {
+    const q = query(collection(db, "users"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const usersFromFirestore: User[] = [];
       querySnapshot.forEach((doc) => {
         usersFromFirestore.push({ id: doc.id, ...doc.data() } as User);
@@ -169,8 +190,9 @@ const App: React.FC = () => {
   // useEffect para cargar los productos de afiliados desde Firestore
   useEffect(() => {
     setAffiliateProductsState({ status: 'loading', data: [], error: null });
-    const q = db.collection("affiliateProducts");
-    const unsubscribe = q.onSnapshot( 
+    const q = query(collection(db, "affiliateProducts"));
+    const unsubscribe = onSnapshot( 
+      q,
       (querySnapshot) => {
         if (querySnapshot.empty) {
           setAffiliateProductsState({
@@ -214,9 +236,9 @@ const App: React.FC = () => {
       return;
     }
 
-    const q = db.collection("posts").doc(postIdFromUrl).collection("comments").orderBy("timestamp", "asc");
+    const q = query(collection(db, "posts", postIdFromUrl, "comments"), orderBy("timestamp", "asc"));
     
-    const unsubscribe = q.onSnapshot((querySnapshot) => {
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const commentsFromFirestore: CommentType[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -295,19 +317,19 @@ const App: React.FC = () => {
       setLoginModalOpen(true);
       return;
     }
-    const postRef = db.collection('posts').doc(postId);
+    const postRef = doc(db, 'posts', postId);
     const post = posts.find(p => p.id === postId);
     if (!post) return;
   
     const isLiked = post.likedBy.includes(currentUser.id);
   
     if (isLiked) {
-      await postRef.update({
+      await updateDoc(postRef, {
         likes: increment(-1),
         likedBy: arrayRemove(currentUser.id)
       });
     } else {
-      await postRef.update({
+      await updateDoc(postRef, {
         likes: increment(1),
         likedBy: arrayUnion(currentUser.id)
       });
@@ -316,16 +338,16 @@ const App: React.FC = () => {
 
   const handleAddComment = async (postId: string, text: string) => {
     if (!currentUser) return;
-    const postRef = db.collection('posts').doc(postId);
-    const commentsCol = postRef.collection('comments');
+    const postRef = doc(db, 'posts', postId);
+    const commentsCol = collection(postRef, 'comments');
     
-    await commentsCol.add({
+    await addDoc(commentsCol, {
       userId: currentUser.id,
       text: text,
       timestamp: serverTimestamp(),
     });
 
-    await postRef.update({
+    await updateDoc(postRef, {
         commentCount: increment(1)
     });
   };
@@ -348,9 +370,9 @@ const App: React.FC = () => {
 
     try {
         const filePath = `posts/${currentUser.id}/${Date.now()}_${formData.file.name}`;
-        const storageRef = storage.ref(filePath);
-        const uploadResult = await storageRef.put(formData.file);
-        const downloadURL = await uploadResult.ref.getDownloadURL();
+        const storageRef = ref(storage, filePath);
+        const uploadResult = await uploadBytes(storageRef, formData.file);
+        const downloadURL = await getDownloadURL(uploadResult.ref);
         const newPost = {
             userId: currentUser.id,
             title: formData.title,
@@ -363,7 +385,7 @@ const App: React.FC = () => {
             likedBy: [],
             commentCount: 0,
         };
-        await db.collection("posts").add(newPost);
+        await addDoc(collection(db, "posts"), newPost);
         setUploadModalOpen(false);
 
     } catch (error) {
@@ -391,11 +413,11 @@ const App: React.FC = () => {
 
     if (window.confirm(confirmationMessage)) {
       try {
-        const storageRef = storage.refFromURL(postToDelete.mediaUrl);
-        await storageRef.delete();
+        const storageRef = ref(storage, postToDelete.mediaUrl);
+        await deleteObject(storageRef);
 
-        const postDocRef = db.collection('posts').doc(postId);
-        await postDocRef.delete();
+        const postDocRef = doc(db, 'posts', postId);
+        await deleteDoc(postDocRef);
 
         handleCloseDetail();
         
@@ -403,8 +425,8 @@ const App: React.FC = () => {
         console.error("Error al eliminar la publicación:", error);
         if ((error as any).code === 'storage/object-not-found') {
            console.warn("El archivo en Storage no se encontró, pero se procederá a eliminar la entrada de Firestore.");
-            const postDocRef = db.collection('posts').doc(postId);
-            await postDocRef.delete();
+            const postDocRef = doc(db, 'posts', postId);
+            await deleteDoc(postDocRef);
             handleCloseDetail();
         } else {
           alert("Ocurrió un error al eliminar la publicación. Por favor, inténtalo de nuevo.");
@@ -415,7 +437,7 @@ const App: React.FC = () => {
 
   const handleLogin = async ({ email, password }: Credentials) => {
     try {
-      await auth.signInWithEmailAndPassword(email, password);
+      await signInWithEmailAndPassword(auth, email, password);
       setLoginModalOpen(false);
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
@@ -425,20 +447,20 @@ const App: React.FC = () => {
 
   const handleSignUp = async ({ email, password, username }: Credentials) => {
     try {
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const finalUsername = username || email.split('@')[0];
       const user = userCredential.user;
       
       const photoURL = ''; // No more default photo
 
-      await user!.updateProfile({
+      await updateProfile(user, {
         displayName: finalUsername,
         photoURL: photoURL
       });
       
-      const userDocRef = db.collection("users").doc(user!.uid);
-      await userDocRef.set({
-        id: user!.uid,
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, {
+        id: user.uid,
         username: finalUsername,
         avatarUrl: photoURL,
         following: [],
@@ -457,14 +479,14 @@ const App: React.FC = () => {
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      const result = await auth.signInWithPopup(provider);
-      const user = result.user!;
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
 
-      const userDocRef = db.collection("users").doc(user.uid);
-      const userDoc = await userDocRef.get();
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
 
-      if (!userDoc.exists) {
-        await userDocRef.set({
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
           id: user.uid,
           username: user.displayName || user.email?.split('@')[0],
           avatarUrl: user.photoURL || '',
@@ -474,7 +496,6 @@ const App: React.FC = () => {
           followersCount: 0,
         });
       }
-
 
       setLoginModalOpen(false);
       setSignUpModalOpen(false);
@@ -486,7 +507,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await auth.signOut();
+      await signOut(auth);
       handleCloseDetail();
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
@@ -503,8 +524,8 @@ const App: React.FC = () => {
       const oldAvatarUrl = auth.currentUser.photoURL;
       if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
         try {
-          const oldStorageRef = storage.refFromURL(oldAvatarUrl);
-          await oldStorageRef.delete();
+          const oldStorageRef = ref(storage, oldAvatarUrl);
+          await deleteObject(oldStorageRef);
         } catch (error) {
           if ((error as any).code !== 'storage/object-not-found') {
             console.warn("No se pudo borrar el avatar antiguo. Puede que no existiera.", error);
@@ -513,14 +534,14 @@ const App: React.FC = () => {
       }
 
       const filePath = `avatars/${currentUser.id}/${file.name}`;
-      const newStorageRef = storage.ref(filePath);
-      await newStorageRef.put(file);
-      const newAvatarUrl = await newStorageRef.getDownloadURL();
+      const newStorageRef = ref(storage, filePath);
+      await uploadBytes(newStorageRef, file);
+      const newAvatarUrl = await getDownloadURL(newStorageRef);
 
-      await auth.currentUser.updateProfile({ photoURL: newAvatarUrl });
+      await updateProfile(auth.currentUser, { photoURL: newAvatarUrl });
 
-      const userDocRef = db.collection('users').doc(currentUser.id);
-      await userDocRef.update({ avatarUrl: newAvatarUrl });
+      const userDocRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userDocRef, { avatarUrl: newAvatarUrl });
 
     } catch (error) {
       console.error("Error al actualizar el avatar:", error);
@@ -538,8 +559,8 @@ const App: React.FC = () => {
       const oldAvatarUrl = auth.currentUser.photoURL;
       if (oldAvatarUrl && oldAvatarUrl.includes('firebasestorage.googleapis.com')) {
         try {
-          const oldStorageRef = storage.refFromURL(oldAvatarUrl);
-          await oldStorageRef.delete();
+          const oldStorageRef = ref(storage, oldAvatarUrl);
+          await deleteObject(oldStorageRef);
         } catch (error) {
           if ((error as any).code !== 'storage/object-not-found') {
             console.warn("No se pudo borrar el avatar del Storage. Puede que no existiera.", error);
@@ -548,10 +569,10 @@ const App: React.FC = () => {
       }
 
       const defaultAvatarUrl = ''; // Back to empty
-      await auth.currentUser.updateProfile({ photoURL: defaultAvatarUrl });
+      await updateProfile(auth.currentUser, { photoURL: defaultAvatarUrl });
       
-      const userDocRef = db.collection('users').doc(currentUser.id);
-      await userDocRef.update({ avatarUrl: defaultAvatarUrl });
+      const userDocRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userDocRef, { avatarUrl: defaultAvatarUrl });
     } catch (error) {
       console.error("Error al eliminar el avatar:", error);
       alert("Ocurrió un error al eliminar tu foto de perfil.");
@@ -619,18 +640,17 @@ const App: React.FC = () => {
     const currentUserId = currentUser.id;
     if (currentUserId === userIdToFollow) return;
 
-    const batch = db.batch();
-    const currentUserRef = db.collection('users').doc(currentUserId);
-    batch.update(currentUserRef, {
+    const currentUserRef = doc(db, 'users', currentUserId);
+    await updateDoc(currentUserRef, {
       following: arrayUnion(userIdToFollow),
       followingCount: increment(1)
     });
-    const userToFollowRef = db.collection('users').doc(userIdToFollow);
-    batch.update(userToFollowRef, {
+    
+    const userToFollowRef = doc(db, 'users', userIdToFollow);
+    await updateDoc(userToFollowRef, {
       followers: arrayUnion(currentUserId),
       followersCount: increment(1)
     });
-    await batch.commit();
   };
 
   const handleUnfollow = async (userIdToUnfollow: string) => {
@@ -638,18 +658,17 @@ const App: React.FC = () => {
     const currentUserId = currentUser.id;
     if (currentUserId === userIdToUnfollow) return;
 
-    const batch = db.batch();
-    const currentUserRef = db.collection('users').doc(currentUserId);
-    batch.update(currentUserRef, {
+    const currentUserRef = doc(db, 'users', currentUserId);
+    await updateDoc(currentUserRef, {
       following: arrayRemove(userIdToUnfollow),
       followingCount: increment(-1)
     });
-    const userToUnfollowRef = db.collection('users').doc(userIdToUnfollow);
-    batch.update(userToUnfollowRef, {
+    
+    const userToUnfollowRef = doc(db, 'users', userIdToUnfollow);
+    await updateDoc(userToUnfollowRef, {
       followers: arrayRemove(currentUserId),
       followersCount: increment(-1)
     });
-    await batch.commit();
   };
   
   const displayedPosts = useMemo(() => {

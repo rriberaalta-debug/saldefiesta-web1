@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { X, AtSign, Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import { Credentials } from '../types';
 import { auth } from '../services/firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
+// FIX: Removed incorrect Firebase v9 import. The `auth` object is already imported from the firebase service.
 
 interface LoginModalProps {
   onClose: () => void;
@@ -46,7 +47,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLogin, onGoogleSignI
     }
     setIsLoading(true);
     try {
-      await sendPasswordResetEmail(auth, resetEmail);
+      // FIX: Use Firebase v8 syntax for sending password reset email.
+      await auth.sendPasswordResetEmail(resetEmail);
       setMessage("Se ha enviado un enlace para restablecer tu contraseña a tu email. Revisa tu bandeja de entrada (y la carpeta de spam).");
       setView('reset-sent');
     } catch (error: any) {

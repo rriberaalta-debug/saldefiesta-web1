@@ -1,29 +1,40 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+
+
+// FIX: Use Firebase v8 namespaced imports
+import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
+import "firebase/compat/firestore";
+import "firebase/compat/storage";
 
 // Lee las variables de entorno de forma segura, como configuraste en Netlify.
-// ESTA ES LA FORMA CORRECTA Y SEGURA.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Valida que las variables de entorno estén presentes (útil para desarrollo local)
 if (!firebaseConfig.apiKey) {
-    console.error("Firebase config is missing. Make sure to set up your environment variables in Netlify.");
+    console.error("Firebase config is missing. Make sure to set up your environment variables.");
 }
 
 // Inicializa Firebase
-const app = initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
 // Exporta los servicios que usarás
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const auth = firebase.auth();
+export const db = firebase.firestore();
+export const storage = firebase.storage();
+
+// Exporta métodos de FieldValue y otros para compatibilidad con v8
+export const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
+export const increment = firebase.firestore.FieldValue.increment;
+export const arrayUnion = firebase.firestore.FieldValue.arrayUnion;
+export const arrayRemove = firebase.firestore.FieldValue.arrayRemove;
+export const GoogleAuthProvider = firebase.auth.GoogleAuthProvider;

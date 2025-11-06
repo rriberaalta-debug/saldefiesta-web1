@@ -1,12 +1,11 @@
+// FIX: The reference to vite/client is removed as it was causing an error and environment variables are now accessed via process.env.
 import { GoogleGenAI, Type } from "@google/genai";
 import { Post, User, FiestaEvent } from "../types";
+import { fiestas as localFiestas } from "../constants";
 
-const apiKey = import.meta.env.VITE_API_KEY;
-if (!apiKey) {
-  throw new Error("API_KEY environment variable not set");
-}
+// FIX: Use process.env.API_KEY as per coding guidelines and initialize the AI client directly.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
 const extractJson = (text: string): any => {
   const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```|(\[[\s\S]*\])/);
@@ -28,6 +27,7 @@ const extractJson = (text: string): any => {
 
 
 export const generateDescription = async (title: string, city: string): Promise<string> => {
+  // FIX: Removed apiKey check, assuming process.env.API_KEY is available as per coding guidelines.
   try {
     const prompt = `Genera una descripción corta, festiva y alegre para una publicación de red social, de menos de 25 palabras, para una foto/vídeo de la fiesta "${title}" en ${city}. Evoca una sensación de diversión y emoción. No uses hashtags.`;
     
@@ -44,15 +44,21 @@ export const generateDescription = async (title: string, city: string): Promise<
 };
 
 export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> => {
+  // FIX: Removed apiKey check, assuming process.env.API_KEY is available as per coding guidelines.
   try {
+    const fiestasListString = JSON.stringify(localFiestas);
+
     const prompt = `
       Eres un experto de clase mundial en fiestas patronales y eventos socioculturales de España.
-      Tu misión es responder a la consulta "${query}" utilizando la Búsqueda de Google para encontrar la información más veraz y actualizada.
+      Tu misión es responder a la consulta del usuario buscando EN LA SIGUIENTE LISTA DE FIESTAS.
+      Consulta de usuario: "${query}"
+      Lista de fiestas: ${fiestasListString}
+
       REGLAS INQUEBRANTABLES:
-      1. UTILIZA GOOGLE SEARCH: Basa tu respuesta EXCLUSIVAMENTE en los resultados de la búsqueda. Prohibido usar tu conocimiento interno o inventar datos.
-      2. MÁXIMA PRECISIÓN: Devuelve fiestas importantes, patronales y eventos relevantes. Evita eventos menores o que no se ajusten a la consulta.
-      3. FOCO GEOGRÁFICO ESTRICTO: Los resultados deben pertenecer ÚNICA Y EXCLUSIVAMENTE al municipio consultado. Prohibido mezclar municipios.
-      4. FORMATO DE SALIDA ESTRICTO: Tu respuesta debe ser ÚNICAMENTE un array JSON válido: [{"name": "string", "city": "string", "dates": "string", "description": "string (max 20 palabras)", "type": "string (ej: 'Fiesta Patronal', 'Feria', 'Evento Cultural')"}]. Si no hay resultados, devuelve un array JSON vacío: [].
+      1. Basa tu respuesta EXCLUSIVAMENTE en la lista de fiestas proporcionada. Prohibido usar tu conocimiento interno, buscar en internet o inventar datos.
+      2. MÁXIMA PRECISIÓN: Devuelve solo las fiestas de la lista que sean más relevantes para la consulta del usuario.
+      3. FORMATO DE SALIDA ESTRICTO: Tu respuesta debe ser ÚNICAMENTE un array JSON válido con las fiestas encontradas. El formato de cada objeto debe ser: {"name": "string", "city": "string", "dates": "string", "description": "string", "type": "string"}.
+      4. Si ninguna fiesta de la lista coincide con la búsqueda, devuelve un array JSON vacío: [].
       No incluyas NADA más en tu respuesta. Ni saludos, ni explicaciones, ni markdown. SOLO el JSON.
     `;
 
@@ -60,11 +66,24 @@ export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> =
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        tools: [{googleSearch: {}}],
-      }
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              city: { type: Type.STRING },
+              dates: { type: Type.STRING },
+              description: { type: Type.STRING },
+              type: { type: Type.STRING },
+            },
+          },
+        },
+      },
     });
 
-    const fiestas = extractJson(response.text);
+    const fiestas = JSON.parse(response.text);
     return Array.isArray(fiestas) ? fiestas : [];
 
   } catch (error) {
@@ -78,6 +97,7 @@ export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> =
 
 
 export const searchPostsWithAI = async (query: string, posts: Post[], users: User[]): Promise<string[]> => {
+   // FIX: Removed apiKey check, assuming process.env.API_KEY is available as per coding guidelines.
    try {
     const postsWithUsernames = posts.map(post => {
       const user = users.find(u => u.id === post.userId);

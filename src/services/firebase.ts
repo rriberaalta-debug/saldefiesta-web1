@@ -1,9 +1,10 @@
+// FIX: The reference to vite/client is removed as it was causing an error and environment variables are now accessed via process.env.
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// Lee las variables de entorno de forma segura, como configuraste en Netlify.
+// FIX: Use process.env instead of import.meta.env to access environment variables.
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY,
   authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -14,7 +15,7 @@ const firebaseConfig = {
   measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Valida que las variables de entorno estén presentes (útil para desarrollo local)
+// Valida que las variables de entorno estén presentes
 if (!firebaseConfig.apiKey) {
     console.error("Firebase config is missing. Make sure to set up your environment variables.");
 }

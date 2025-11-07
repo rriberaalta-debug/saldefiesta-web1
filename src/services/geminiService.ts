@@ -1,9 +1,11 @@
-// FIX: The reference to vite/client is removed as it was causing an error and environment variables are now accessed via process.env.
+// FIX: Removed reference to vite/client to resolve type definition error.
 import { GoogleGenAI, Type } from "@google/genai";
 import { Post, User, FiestaEvent } from "../types";
 import * as constants from "../constants";
 
-// FIX: Use process.env.API_KEY as per coding guidelines and initialize the AI client directly.
+// FIX: Per coding guidelines, initialize GoogleGenAI with process.env.API_KEY
+// and assume the key is available. This replaces the use of Vite's import.meta.env.
+// FIX: Use process.env.API_KEY as per the coding guidelines for Gemini API initialization to resolve the TS error on import.meta.env.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
@@ -27,7 +29,6 @@ const extractJson = (text: string): any => {
 
 
 export const generateDescription = async (title: string, city: string): Promise<string> => {
-  // FIX: Removed apiKey check, assuming process.env.API_KEY is available as per coding guidelines.
   try {
     const prompt = `Genera una descripción corta, festiva y alegre para una publicación de red social, de menos de 25 palabras, para una foto/vídeo de la fiesta "${title}" en ${city}. Evoca una sensación de diversión y emoción. No uses hashtags.`;
     
@@ -44,7 +45,6 @@ export const generateDescription = async (title: string, city: string): Promise<
 };
 
 export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> => {
-  // FIX: Removed apiKey check, assuming process.env.API_KEY is available as per coding guidelines.
   try {
     const fiestasListString = JSON.stringify(constants.fiestas);
 
@@ -97,7 +97,6 @@ export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> =
 
 
 export const searchPostsWithAI = async (query: string, posts: Post[], users: User[]): Promise<string[]> => {
-   // FIX: Removed apiKey check, assuming process.env.API_KEY is available as per coding guidelines.
    try {
     const postsWithUsernames = posts.map(post => {
       const user = users.find(u => u.id === post.userId);

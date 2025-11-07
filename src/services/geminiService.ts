@@ -12,22 +12,34 @@ if (!apiKey) {
 const ai = new GoogleGenAI({ apiKey });
 
 
-const extractJson = (text: string): any => {
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```|(\[[\s\S]*\])/);
-  if (jsonMatch && (jsonMatch[1] || jsonMatch[2])) {
+// Helper function to robustly parse a JSON array from the AI's response text.
+const parseJsonArray = (text: string): any[] => {
+  // Try to find a JSON code block first. This is the most reliable method.
+  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+  if (jsonMatch && jsonMatch[1]) {
     try {
-      return JSON.parse(jsonMatch[1] || jsonMatch[2]);
+      const parsed = JSON.parse(jsonMatch[1]);
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       console.error("Failed to parse extracted JSON from code block:", e);
+      // Fallback to other methods if parsing fails
     }
   }
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-     console.error("Failed to parse raw text as JSON:", text);
-     if(text.trim().startsWith('[')) return [];
-     throw new Error("La IA ha devuelto una respuesta con un formato incorrecto.");
+
+  // If no code block, try to find a raw JSON array in the text.
+  const arrayMatch = text.match(/(\[[\s\S]*\])/);
+  if (arrayMatch && arrayMatch[1]) {
+    try {
+      const parsed = JSON.parse(arrayMatch[1]);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error("Failed to parse extracted raw JSON array:", e);
+    }
   }
+  
+  // If all parsing attempts fail, return an empty array.
+  console.error("No valid JSON array found in the AI response text:", text);
+  return [];
 };
 
 
@@ -51,42 +63,43 @@ export const generateDescription = async (title: string, city: string): Promise<
 export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> => {
   try {
     const prompt = `
-      Eres un experto de clase mundial en fiestas patronales y eventos socioculturales de España.
-      Tu misión es responder a la consulta del usuario con información precisa y actualizada sobre fiestas en España.
+      Eres un asistente experto en fiestas patronales y eventos de España.
+      Tu misión es responder a la consulta del usuario con la información MÁS PRECISA y ACTUALIZADA posible, utilizando la búsqueda en la web.
       Consulta de usuario: "${query}"
 
-      REGLAS:
-      1. Busca en tu conocimiento sobre fiestas españolas para encontrar los eventos más relevantes para la consulta.
-      2. Si la consulta es un nombre de ciudad, devuelve las fiestas más importantes de esa ciudad. Si es una fiesta, da detalles sobre ella.
-      3. FORMATO DE SALIDA ESTRICTO: Tu respuesta debe ser ÚNICAMENTE un array JSON válido con las fiestas encontradas. El formato de cada objeto debe ser: {"name": "string", "city": "string", "dates": "string", "description": "string", "type": "string"}.
-      4. Si no encuentras ninguna fiesta relevante, devuelve un array JSON vacío: [].
-      5. No incluyas NADA más en tu respuesta. Ni saludos, ni explicaciones, ni markdown. SOLO el JSON.
+      INSTRUCCIONES ESTRICTAS:
+      1. **USA LA BÚSQUEDA WEB OBLIGATORIAMENTE**: Realiza una búsqueda en Google para verificar fechas exactas, ubicaciones (incluyendo barrios si es relevante) y detalles de las fiestas. No confíes únicamente en tu conocimiento interno. La precisión es crítica.
+      2. **FORMATO DE SALIDA**: Tu respuesta debe ser ÚNICAMENTE un bloque de código JSON que contenga un array de objetos. No incluyas texto introductorio, explicaciones, saludos ni nada fuera del bloque de código.
+      3. **ESTRUCTURA DEL JSON**: Cada objeto en el array debe tener el siguiente formato: {"name": "string", "city": "string", "dates": "string", "description": "string", "type": "string"}.
+      4. **SIN RESULTADOS**: Si después de buscar en la web no encuentras ninguna fiesta relevante, devuelve un array JSON vacío: [].
+      5. **EJEMPLO DE RESPUESTA VÁLIDA**:
+      \`\`\`json
+      [
+        {
+          "name": "Aste Nagusia / Semana Grande",
+          "city": "Bilbao (Barrios: Casco Viejo, Abando)",
+          "dates": "Del 17 al 25 de agosto de 2024",
+          "description": "Nueve días de fiesta con Marijaia como símbolo, conciertos, fuegos artificiales y actividades en toda la ciudad.",
+          "type": "Fiesta Patronal"
+        }
+      ]
+      \`\`\`
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              name: { type: Type.STRING },
-              city: { type: Type.STRING },
-              dates: { type: Type.STRING },
-              description: { type: Type.STRING },
-              type: { type: Type.STRING },
-            },
-            required: ['name', 'city', 'dates', 'description', 'type']
-          },
-        },
+        tools: [{ googleSearch: {} }],
       },
     });
 
-    const foundFiestas = JSON.parse(response.text);
-    return Array.isArray(foundFiestas) ? foundFiestas : [];
+    const foundFiestas = parseJsonArray(response.text);
+    if (!Array.isArray(foundFiestas)) {
+        // The helper function ensures it's always an array, but this is good practice
+        throw new Error("La IA no devolvió un array válido.");
+    }
+    return foundFiestas;
 
   } catch (error) {
     console.error("Error calling findFiestasWithAI:", error);

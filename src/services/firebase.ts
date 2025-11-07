@@ -1,11 +1,12 @@
-// FIX: The reference to vite/client is removed as it was causing an error and environment variables are now accessed via process.env.
+
+// FIX: Removed reference to "vite/client" to resolve type definition errors.
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// FIX: Use process.env instead of import.meta.env to access environment variables.
 const firebaseConfig = {
+  // FIX: Switched from import.meta.env to process.env to access environment variables consistently.
   apiKey: process.env.VITE_FIREBASE_API_KEY,
   authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.VITE_FIREBASE_PROJECT_ID,

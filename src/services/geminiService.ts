@@ -3,7 +3,7 @@ import { Post, User, FiestaEvent } from "../types";
 import * as constants from "../constants";
 
 // Fix: In a Vite project, client-side environment variables must be accessed via `import.meta.env` and prefixed with `VITE_`.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 
 const extractJson = (text: string): any => {

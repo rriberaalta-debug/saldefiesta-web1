@@ -1,11 +1,8 @@
-// FIX: Removed reference to vite/client to resolve type definition error.
 import { GoogleGenAI, Type } from "@google/genai";
 import { Post, User, FiestaEvent } from "../types";
 import * as constants from "../constants";
 
-// FIX: Per coding guidelines, initialize GoogleGenAI with process.env.API_KEY
-// and assume the key is available. This replaces the use of Vite's import.meta.env.
-// FIX: Use process.env.API_KEY as per the coding guidelines for Gemini API initialization to resolve the TS error on import.meta.env.
+// Fix: Adhering to @google/genai SDK guidelines to use process.env.API_KEY for the API key.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
@@ -54,7 +51,7 @@ export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> =
       Consulta de usuario: "${query}"
       Lista de fiestas: ${fiestasListString}
 
-      REGLAS INQUEBRANTABLES:
+      REGLAS INQUEBRABLES:
       1. Basa tu respuesta EXCLUSIVAMENTE en la lista de fiestas proporcionada. Prohibido usar tu conocimiento interno, buscar en internet o inventar datos.
       2. MÁXIMA PRECISIÓN: Devuelve solo las fiestas de la lista que sean más relevantes para la consulta del usuario.
       3. FORMATO DE SALIDA ESTRICTO: Tu respuesta debe ser ÚNICAMENTE un array JSON válido con las fiestas encontradas. El formato de cada objeto debe ser: {"name": "string", "city": "string", "dates": "string", "description": "string", "type": "string"}.

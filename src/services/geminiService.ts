@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Post, User, FiestaEvent } from "../types";
 import * as constants from "../constants";
 
-// Fix: Adhering to @google/genai SDK guidelines to use process.env.API_KEY for the API key.
+// Fix: In a Vite project, client-side environment variables must be accessed via `import.meta.env` and prefixed with `VITE_`.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
@@ -34,7 +34,8 @@ export const generateDescription = async (title: string, city: string): Promise<
       contents: prompt,
     });
     
-    return response.text?.trim() || `¡Una experiencia inolvidable en la celebración de ${title} en ${city}!`;
+    // FIX: The .text property is a getter that returns a string or throws, so optional chaining is incorrect.
+    return response.text.trim() || `¡Una experiencia inolvidable en la celebración de ${title} en ${city}!`;
   } catch (error) {
     console.error("Error generating description with AI:", error);
     return `¡Una experiencia inolvidable en la celebración de ${title} en ${city}!`;

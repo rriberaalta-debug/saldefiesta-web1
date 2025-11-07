@@ -50,20 +50,17 @@ export const generateDescription = async (title: string, city: string): Promise<
 
 export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> => {
   try {
-    const fiestasListString = JSON.stringify(constants.fiestas);
-
     const prompt = `
       Eres un experto de clase mundial en fiestas patronales y eventos socioculturales de España.
-      Tu misión es responder a la consulta del usuario buscando EN LA SIGUIENTE LISTA DE FIESTAS.
+      Tu misión es responder a la consulta del usuario con información precisa y actualizada sobre fiestas en España.
       Consulta de usuario: "${query}"
-      Lista de fiestas: ${fiestasListString}
 
-      REGLAS INQUEBRABLES:
-      1. Basa tu respuesta EXCLUSIVAMENTE en la lista de fiestas proporcionada. Prohibido usar tu conocimiento interno, buscar en internet o inventar datos.
-      2. MÁXIMA PRECISIÓN: Devuelve solo las fiestas de la lista que sean más relevantes para la consulta del usuario.
+      REGLAS:
+      1. Busca en tu conocimiento sobre fiestas españolas para encontrar los eventos más relevantes para la consulta.
+      2. Si la consulta es un nombre de ciudad, devuelve las fiestas más importantes de esa ciudad. Si es una fiesta, da detalles sobre ella.
       3. FORMATO DE SALIDA ESTRICTO: Tu respuesta debe ser ÚNICAMENTE un array JSON válido con las fiestas encontradas. El formato de cada objeto debe ser: {"name": "string", "city": "string", "dates": "string", "description": "string", "type": "string"}.
-      4. Si ninguna fiesta de la lista coincide con la búsqueda, devuelve un array JSON vacío: [].
-      No incluyas NADA más en tu respuesta. Ni saludos, ni explicaciones, ni markdown. SOLO el JSON.
+      4. Si no encuentras ninguna fiesta relevante, devuelve un array JSON vacío: [].
+      5. No incluyas NADA más en tu respuesta. Ni saludos, ni explicaciones, ni markdown. SOLO el JSON.
     `;
 
     const response = await ai.models.generateContent({
@@ -82,6 +79,7 @@ export const findFiestasWithAI = async (query: string): Promise<FiestaEvent[]> =
               description: { type: Type.STRING },
               type: { type: Type.STRING },
             },
+            required: ['name', 'city', 'dates', 'description', 'type']
           },
         },
       },

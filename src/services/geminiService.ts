@@ -2,8 +2,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Post, User, FiestaEvent } from "../types";
 import * as constants from "../constants";
 
-// Fix: In a Vite project, client-side environment variables must be accessed via `import.meta.env` and prefixed with `VITE_`.
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+const apiKey = import.meta.env.VITE_API_KEY;
+
+if (!apiKey) {
+  // This throws a clearer error if the environment variable is missing in Netlify.
+  throw new Error("VITE_API_KEY is not set. Please check your Netlify environment variables.");
+}
+
+const ai = new GoogleGenAI({ apiKey });
 
 
 const extractJson = (text: string): any => {
